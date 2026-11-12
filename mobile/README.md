@@ -25,6 +25,24 @@ mobile/app/maestro/run.sh                             # the Maestro flows on the
 - **Dependencies.** Pinned exactly, each with its reason in `app/DEPENDENCIES.md`.
 - **CI.** `app-check` (Linux) for the app and the shared modules it uses; `App builds` (`.github/workflows/app-native.yml`: a Release simulator build on macOS and a debug build with the unit tests on Linux, both unsigned) for pull requests that change `mobile/app/` and every night.
 
+### On your own iPhone
+
+Without TestFlight, build the app onto your phone from a Mac with Xcode, signed with your own Apple ID:
+
+1. Xcode → Settings → Accounts: add your Apple ID (a free account is enough; its builds run for 7 days, then build again).
+2. On the iPhone: Settings → Privacy & Security → Developer Mode on, then connect it by cable and trust the Mac.
+3. Build and install with an id of your own:
+
+   ```sh
+   cd mobile/app
+   OPENTODO_APP_ID=com.yourname.opentodo npx expo prebuild --platform ios --clean
+   npx expo run:ios --device --configuration Release    # pick the phone, then your team when asked
+   ```
+
+4. The first launch asks to trust the developer: Settings → General → VPN & Device Management.
+
+The server must have the app sign-in fixes of this branch (the web app's sign-in confirmation), and the phone must reach it: over Tailscale, keep it connected on the phone.
+
 ## Building the Android app
 
 Needs JDK 17 or later and the Android SDK (platform 37.0, build tools 36.0.0) with `ANDROID_HOME` set; the Gradle wrapper downloads Gradle itself (checksum pinned).

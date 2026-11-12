@@ -8,6 +8,11 @@
 // and as the next version of the Android app.
 import type { ExpoConfig } from 'expo/config'
 
+// A build for your own iPhone, signed with your own Apple ID, needs a bundle id of its own
+// (app.open-todo.ios belongs to the project's team): `OPENTODO_APP_ID=com.you.opentodo
+// npx expo prebuild`. Unset, the project's id. Read only when the native project is made.
+const iosId = process.env.OPENTODO_APP_ID?.trim() || 'app.open-todo.ios'
+
 const config: ExpoConfig = {
   name: 'OpenTodo',
   slug: 'opentodo',
@@ -17,7 +22,7 @@ const config: ExpoConfig = {
   // metro.config.js resolves @shared/* itself (with the shared modules' packages).
   experiments: { tsconfigPaths: false },
   ios: {
-    bundleIdentifier: 'app.open-todo.ios',
+    bundleIdentifier: iosId,
     supportsTablet: false,
     // Light and dark with the system (on Android this needs expo-system-ui, not installed yet).
     userInterfaceStyle: 'automatic',
