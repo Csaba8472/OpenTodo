@@ -20,9 +20,13 @@ OPENTODO_ADDR="127.0.0.1:$port" OPENTODO_DATA_DIR="$data" OPENTODO_BASE_URL="$se
 pid=$!
 trap 'kill $pid 2>/dev/null || true; rm -rf "$data"' EXIT
 for _ in $(seq 50); do curl -fs "$server/api/v1/health" > /dev/null && break; sleep 0.2; done
-curl -fs -X POST "$server/api/v1/auth/register" -H 'Content-Type: application/json' -H "Origin: $server" \
+curl -fs -c "$data/cookies" -X POST "$server/api/v1/auth/register" -H 'Content-Type: application/json' -H "Origin: $server" \
   -d "{\"email\":\"$email\",\"name\":\"Tester\",\"password\":\"$password\"}" > /dev/null
+# A token for the flows' REST calls (scripts/), as another device of the account.
+token=$(curl -fs -b "$data/cookies" -X POST "$server/api/v1/tokens" -H 'Content-Type: application/json' -H "Origin: $server" \
+  -d '{"name":"maestro"}' | sed -n 's/.*"secret":"\([^"]*\)".*/\1/p')
 
 flows=("$@")
 [ ${#flows[@]} -gt 0 ] || flows=(*.yaml)
-maestro test -e SERVER="$server" -e EMAIL="$email" -e PASSWORD="$password" "${flows[@]}" || { tail -50 "$log"; exit 1; }
+# --platform ios: an Android emulator running on the same machine would be picked otherwise.
+maestro test --platform ios -e SERVER="$server" -e EMAIL="$email" -e PASSWORD="$password" -e TOKEN="$token" "${flows[@]}" || { tail -50 "$log"; exit 1; }

@@ -1,0 +1,26 @@
+# Sync and Today (OpenSpec change native-app-foundation, tasks 4.5 and 4.6; native-app
+# "Sync in the app"): a task made on the server shows in Today; renamed on the server while
+# the app is open, it changes in the app without a tap (the live stream); completed in the
+# app, the server has it completed. maestro/run.sh passes SERVER, TOKEN and the account.
+appId: app.open-todo.ios
+---
+- runScript:
+    file: scripts/create-task.js
+    env:
+      TITLE: Buy milk
+- runFlow: common/sign-in.yaml
+- extendedWaitUntil:
+    visible: Buy milk
+    timeout: 20000
+- runScript:
+    file: scripts/rename-task.js
+    env:
+      TITLE: Buy oat milk
+- extendedWaitUntil:
+    visible: Buy oat milk
+    timeout: 10000
+- tapOn: Complete Buy oat milk
+- assertNotVisible: Buy oat milk
+- runScript: scripts/completed-on-server.js
+- tapOn: Sign out
+- assertVisible: Your server

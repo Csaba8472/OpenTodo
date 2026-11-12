@@ -1,0 +1,49 @@
+# Signs in through the system's authentication sheet (design D5) and waits for Today: the
+# address, the sheet, the password when the sheet has no session, the confirmation. Run
+# from the flows in the folder above with SERVER, EMAIL and PASSWORD.
+appId: app.open-todo.ios
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+- tapOn: Server address
+- inputText: ${SERVER}
+- tapOn: Continue
+# iOS asks before the sheet opens: "“OpenTodo” Wants to Use “…” to Sign In".
+- tapOn:
+    text: Continue
+    index: 0
+    optional: true
+- extendedWaitUntil:
+    visible: Password|Sign in to the OpenTodo app on iPhone\?
+    timeout: 40000
+- runFlow:
+    when:
+      visible: Password
+    commands:
+      - tapOn:
+          text: Email
+          index: -1
+      - inputText: ${EMAIL}
+      - tapOn: Password
+      - inputText: ${PASSWORD}
+      - tapOn:
+          text: Sign in
+          index: -1
+      # The system offers to keep the password, sometimes only after the confirmation is up.
+      - extendedWaitUntil:
+          visible: Not Now|Sign in to the OpenTodo app on iPhone\?
+          timeout: 40000
+      - runFlow:
+          file: not-now.yaml
+- extendedWaitUntil:
+    visible: Sign in to the OpenTodo app on iPhone\?
+    timeout: 40000
+- runFlow:
+    file: not-now.yaml
+- tapOn:
+    text: Sign in
+    index: -1
+- extendedWaitUntil:
+    visible: Today
+    timeout: 40000

@@ -172,6 +172,11 @@ export class Session {
   /** The app's fetch (see the file comment). */
   readonly fetch: typeof fetch = (input, init) => this.send(this.raw, input, init)
 
+  /** The same, over another transport: the live stream's, which can read a body as it arrives. */
+  fetchWith(transport: typeof fetch): typeof fetch {
+    return (input, init) => this.send(transport, input, init)
+  }
+
   private async send(transport: typeof fetch, input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
     const url = this.target(input)
     if (!url) return transport(input, init)

@@ -4,9 +4,12 @@
 // shared module loads.
 import NetInfo from '@react-native-community/netinfo'
 import { getCalendars, getLocales } from 'expo-localization'
+import { fetch as streamFetch } from 'expo/fetch'
 import { AppState } from 'react-native'
 import { createMMKV } from 'react-native-mmkv'
 import { installPlatform } from '@shared/platform'
+import { session } from './appSession'
+import { liveEventSource } from './live'
 import { createPlatform, type Host } from './platform'
 import { opSqlite } from './storage/opSqlite'
 
@@ -37,3 +40,18 @@ export function installAppPlatform(): void {
   installPlatform(createPlatform(reactNativeHost()))
 }
 
+/**
+ * The live stream sync.ts opens (src/live.ts): over expo/fetch with the session's token,
+ * closed when the app goes to the background and opened again in front. `inactive` (a
+ * pulled-down Control Center, the app switcher) keeps it.
+ */
+export function installLiveStream(): void {
+  ;(globalThis as { EventSource?: unknown }).EventSource = liveEventSource({
+    fetch: session.fetchWith(streamFetch as unknown as typeof fetch),
+    active: () => AppState.currentState !== 'background',
+    onActive(fn) {
+      const sub = AppState.addEventListener('change', (s) => { if (s === 'active' || s === 'background') fn(s === 'active') })
+      return () => sub.remove()
+    },
+  })
+}

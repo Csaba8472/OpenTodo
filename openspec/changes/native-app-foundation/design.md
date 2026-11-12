@@ -274,6 +274,11 @@ The shared engine runs unchanged: outbox, pull pages, live stream, hybrid clock.
 - **Background refresh** (`BGAppRefreshTask`) comes with the widget in `native-app-handover`.
 - **Device id.** The app's device id is generated on first launch, like a browser's, so ops carry it and convergence is unchanged.
 
+As built (tasks 4.5 and 4.6):
+- **The live stream.** React Native has no `EventSource`, and its `fetch` does not hand over a body before it ends. `src/live.ts` is an `EventSource` over `expo/fetch` (part of `expo`, no package added), with the session's token, installed at start-up; `sync.ts` uses it unchanged. When the app goes to the background it sends the outbox (`syncNow`), then closes the stream without an error; in front it opens again and says so, and sync pulls. `inactive` (Control Center, the app switcher) keeps the stream.
+- **Starting.** `src/accountSync.ts` starts the shared sync once the account's database is open, after reading the account's encryption mode: `GET /api/v1/auth/status` answers only for a browser session, so the app reads the key record (`refreshFromServer`) instead. An encrypted account stays locked until its unlock in `native-app-everyday`; Today says so.
+- **Reading again.** dexie-react-hooks is web-only; a screen reads again after each committed write to the stores it shows (the adapter's `onChange`, `src/useRead.ts`) and when the app comes to the front.
+
 ### D7. The UI stack, fixed here so every screen uses the same parts
 
 Each dependency is a native-view library, not a JavaScript imitation:

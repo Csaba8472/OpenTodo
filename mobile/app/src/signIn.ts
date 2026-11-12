@@ -3,6 +3,7 @@
 // belongs to.
 import * as WebBrowser from 'expo-web-browser'
 import { Platform } from 'react-native'
+import { stopAccountSync } from './accountSync'
 import { clearDevicePrefs } from './host'
 import { forgetAccount, openAccount } from './storage/account'
 import { session, vault } from './appSession'
@@ -58,12 +59,15 @@ export async function signIn(server: string): Promise<Account> {
 
 /** Signs out (design D5) and deletes the account's database, tokens and record from the phone. */
 export async function signOut(): Promise<void> {
+  // No exchange runs on a token that is about to end, or writes into a database being deleted.
+  await stopAccountSync()
   await session.signOut()
   await forgetLocal()
 }
 
 /** What is left on the phone when the server ended the session: nothing of the account. */
 export async function forgetLocal(): Promise<void> {
+  await stopAccountSync()
   await vault.set(ACCOUNT, null)
   await forgetAccount()
   clearDevicePrefs()

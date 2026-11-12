@@ -17,6 +17,8 @@ Every package in `package.json`, with the reason it is there (OpenSpec change `n
 - `yjs`: the notes document model, which the shared `applyOps` loads to merge a pulled note (`web/src/lib/richtext.ts`); its `lib0` asks for a React Native crypto package, which Metro points at the app's Web Crypto (`src/stubs/webcrypto.ts`).
 - `expo-web-browser`: the system's authentication sheet for app sign-in (`ASWebAuthenticationSession`, a Custom Tab; design D5), which shares the browser's cookies and passkeys.
 - `expo-secure-store`: the Keychain or Keystore for the sign-in tokens (design D5), never MMKV.
+- `expo-haptics`: the tap when a task is completed (design D7).
+- `react-native-safe-area-context`: the screen insets (the notch, the home indicator) for the screens drawn edge to edge; 5.10.1, the version Expo SDK 58 is built with, which the navigation stack of the everyday screens needs too.
 - `dexie`: the local database's schema, which `web/src/lib/db.ts` declares on a Dexie instance, and the zones the adapter's transactions use (`src/storage/scope.ts`). Dexie never opens a database in the app; the adapter does.
 
 ## Overrides

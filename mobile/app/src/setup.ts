@@ -9,10 +9,11 @@
 import 'dexie'
 import { installSessionFetch } from './appSession'
 import { installCrypto } from './crypto'
-import { installAppPlatform } from './host'
+import { installAppPlatform, installLiveStream } from './host'
 import { installPolyfills } from './polyfills'
 
 installPolyfills()
 installCrypto()
 installAppPlatform()
 installSessionFetch()
+installLiveStream()
