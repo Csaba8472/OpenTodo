@@ -7,7 +7,6 @@ import { click, mockFetch, render, waitFor } from '../ui/test-utils'
 import { AppSignIn } from './AppSignIn'
 import { AppSessions } from './AppSessions'
 import { OAuthConsent } from './OAuthConsent'
-import { useOauthAuthorizeReturn } from './oauthReturn'
 
 afterEach(() => { vi.unstubAllGlobals() })
 
@@ -62,19 +61,28 @@ describe('AppSignIn', () => {
 })
 
 describe('the sign-in return', () => {
-  function Return() { useOauthAuthorizeReturn(true); return null }
-
   it('returns a signed-in browser to this server’s /app/sign-in, and nowhere else', async () => {
     for (const [next, followed] of [[`${window.location.origin}/app/sign-in?${query}`, true], ['https://evil.example/app/sign-in', false]] as const) {
       window.history.replaceState(null, '', `/?oauth=${encodeURIComponent(next)}`)
-      const assign = vi.fn()
-      vi.stubGlobal('location', { ...window.location, origin: window.location.origin, href: window.location.href, search: window.location.search, assign })
-      const replace = vi.spyOn(window.history, 'replaceState')
+      // The address is read when the module loads, as when the page opens with it.
+      vi.resetModules()
+      const { useOauthAuthorizeReturn, useReturnPending } = await import('./oauthReturn')
+      let pending: boolean | null = null
+      function Return() { useOauthAuthorizeReturn(true); pending = useReturnPending(); return null }
+      const replaceLocation = vi.fn()
+      vi.stubGlobal('location', { ...window.location, origin: window.location.origin, href: window.location.href, search: window.location.search, replace: replaceLocation })
       const { unmount } = await render(<Return />)
-      await waitFor(() => replace.mock.calls.length > 0, 'the parameter removed')
-      expect(assign.mock.calls.length).toBe(followed ? 1 : 0)
+      if (followed) {
+        // Replaced as it is, the parameter still in the address: a reload meanwhile returns again.
+        await waitFor(() => replaceLocation.mock.calls.length === 1, 'the return')
+        expect(replaceLocation).toHaveBeenCalledWith(next)
+        expect(window.location.search).toContain('oauth=')
+        expect(pending).toBe(true)
+      } else {
+        await waitFor(() => pending === false, 'the return dropped')
+        expect(replaceLocation).not.toHaveBeenCalled()
+      }
       await unmount()
-      replace.mockRestore()
       vi.unstubAllGlobals()
     }
   })

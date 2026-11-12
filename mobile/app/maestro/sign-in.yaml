@@ -1,0 +1,54 @@
+# Sign in through the system's authentication sheet, then sign out (OpenSpec change
+# native-app-foundation, task 4.4; account-access "App sign-in through the system
+# browser"). Against a server with an account: maestro test -e SERVER=… -e EMAIL=… -e PASSWORD=…
+# (maestro/run.sh starts one). The sheet shares the browser's cookies, so a second run finds
+# the session and only confirms. Nothing of the web app's own may cover the confirmation:
+# a fresh owner's welcome note and start guide wait while it is open.
+appId: app.open-todo.ios
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+- tapOn: Server address
+- inputText: ${SERVER}
+- tapOn: Continue
+# iOS asks before the sheet opens: "“OpenTodo” Wants to Use “…” to Sign In".
+- tapOn:
+    text: Continue
+    index: 0
+    optional: true
+- extendedWaitUntil:
+    visible: Password|Sign in to the OpenTodo app on iPhone\?
+    timeout: 40000
+- runFlow:
+    when:
+      visible: Password
+    commands:
+      - tapOn:
+          text: Email
+          index: -1
+      - inputText: ${EMAIL}
+      - tapOn: Password
+      - inputText: ${PASSWORD}
+      - tapOn:
+          text: Sign in
+          index: -1
+      # The system offers to keep the password, sometimes only after the confirmation is up.
+      - extendedWaitUntil:
+          visible: Not Now|Sign in to the OpenTodo app on iPhone\?
+          timeout: 40000
+      - runFlow:
+          file: common/not-now.yaml
+- extendedWaitUntil:
+    visible: Sign in to the OpenTodo app on iPhone\?
+    timeout: 40000
+- runFlow:
+    file: common/not-now.yaml
+- tapOn:
+    text: Sign in
+    index: -1
+- extendedWaitUntil:
+    visible: Sign out
+    timeout: 40000
+- tapOn: Sign out
+- assertVisible: Your server

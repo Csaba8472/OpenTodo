@@ -2,7 +2,8 @@ name: App builds
 
 # The native app's iOS and Android builds (OpenSpec change native-app-foundation D8, D9):
 # the native projects are generated from mobile/app/app.config.ts (`expo prebuild`), never
-# committed, and built here with no signing. ci.yml calls this for a pull request that
+# committed, and built here with no certificate (the simulator build is ad-hoc signed for
+# the Keychain). ci.yml calls this for a pull request that
 # changes mobile/app/; nightly.yml calls it every night. Release tags join when a release
 # ships the app (native-app-handover). A change to
 # a shared module runs only the Linux app-check job in ci.yml, never these. Actions → App
@@ -33,18 +34,24 @@ concurrency:
 jobs:
   # Prebuild and a Release build for the simulator: Release, so the JavaScript bundle is
   # compiled to Hermes bytecode and embedded, which checks the whole bundle too. The
-  # newest Xcode on the runner, as for the TestFlight upload.
+  # newest Xcode on the runner, as for the TestFlight upload. Then the Maestro flows
+  # (mobile/app/maestro) against a server built from this commit.
   app-ios:
-    name: App on iOS (prebuild, simulator build)
+    name: App on iOS (prebuild, simulator build, flows)
     runs-on: macos-15
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: mobile/app/package-lock.json
+          cache-dependency-path: |
+            mobile/app/package-lock.json
+            web/package-lock.json
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
       - name: Newest Xcode
         run: scripts/release/ios-testflight.sh xcode
       - run: npm ci --no-audit --no-fund
@@ -54,14 +61,40 @@ jobs:
         env:
           CI: "1"
         run: npx expo prebuild --platform ios
-      - name: Simulator build (Release, unsigned)
+      # Ad-hoc signed ("-", no certificate): the Keychain refuses an unsigned app, and
+      # sign-in keeps its tokens there.
+      - name: Simulator build (Release, ad-hoc signed)
         working-directory: mobile/app/ios
         run: |
           xcodebuild build -quiet -workspace OpenTodo.xcworkspace -scheme OpenTodo -configuration Release \
-            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build CODE_SIGNING_ALLOWED=NO
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build CODE_SIGN_IDENTITY=-
           app=build/Build/Products/Release-iphonesimulator/OpenTodo.app
           test -f "$app/main.jsbundle" || { echo "::error::no JavaScript bundle in $app"; exit 1; }
           du -sh "$app"
+      - name: The server the flows sign in to (this commit, web app included)
+        run: make web server
+      # Maestro 2.12.0, pinned by its checksum (the release's checksums_sha256.txt).
+      - name: Maestro
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/maestro.zip" https://github.com/mobile-dev-inc/maestro/releases/download/cli-2.12.0/maestro.zip
+          echo "a6044a84542f522f434c5dc3d609e60c7446d423f3ed1b2ae513f5c48663ec5e  $RUNNER_TEMP/maestro.zip" | shasum -a 256 -c
+          unzip -q "$RUNNER_TEMP/maestro.zip" -d "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/maestro/bin" >> "$GITHUB_PATH"
+      - name: Flows on the simulator (mobile/app/maestro)
+        working-directory: mobile/app
+        run: |
+          sim=$(xcrun simctl list devices available | sed -n 's/^[[:space:]]*//; s/ (.*//; /^iPhone 1[6-9]$/p' | head -1)
+          [ -n "$sim" ] || sim=$(xcrun simctl list devices available | sed -n 's/^[[:space:]]*//; s/ (.*//; /^iPhone/p' | head -1)
+          echo "simulator: $sim"
+          xcrun simctl boot "$sim"
+          xcrun simctl bootstatus "$sim" -b
+          xcrun simctl install booted ios/build/Build/Products/Release-iphonesimulator/OpenTodo.app
+          maestro/run.sh
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: app-ios-flows
+          path: ~/.maestro/tests
 
   # Prebuild, a debug build for the emulator's ABI only (the four-ABI build is the
   # release's) and the app module's unit tests. The JDK is the one the Android shell pins.

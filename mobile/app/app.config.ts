@@ -21,6 +21,12 @@ const config: ExpoConfig = {
     supportsTablet: false,
     // Light and dark with the system (on Android this needs expo-system-ui, not installed yet).
     userInterfaceStyle: 'automatic',
+    infoPlist: {
+      // As the shell (mobile/ios/project.yml): plain http only to a server on this network
+      // (a home server at 192.168.…, a .local name), https everywhere else.
+      NSAppTransportSecurity: { NSAllowsLocalNetworking: true },
+      NSLocalNetworkUsageDescription: 'OpenTodo connects to the server you enter so it can sync your tasks on this network.',
+    },
   },
   // The Android shell's application id (mobile/android/app/build.gradle.kts).
   android: {

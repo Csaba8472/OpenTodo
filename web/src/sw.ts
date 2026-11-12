@@ -109,9 +109,12 @@ self.addEventListener('message', (event) => {
 // (mcp-oauth): answered with the app shell, an authorize navigation showed the
 // app and the connection stopped without a code ever being issued. /mcp itself
 // is never a navigation, but a GET of it is the server's 405, not the app.
-const NAVIGATION_DENYLIST = [/^\/api\//, /^\/healthz/, /^\/t\//, /^\/oauth\//, /^\/\.well-known\//, /^\/mcp$/]
+// The same for the OpenTodo app's sign-in (native-app-foundation D5): the server
+// sends /app/sign-in on to the confirmation, so the app shell there showed the app
+// in the sign-in sheet and the confirmation never came.
+const NAVIGATION_DENYLIST = [/^\/api\//, /^\/healthz/, /^\/t\//, /^\/oauth\//, /^\/\.well-known\//, /^\/mcp$/, /^\/app\/sign-in$/]
 // The server's own addresses: never a script, a worker or a stylesheet (design D7).
-const DATA_PATHS = [/^\/api\//, /^\/healthz/, /^\/dav\//, /^\/feeds\//, /^\/oauth\//, /^\/\.well-known\//, /^\/mcp(\/|$)/, /^\/branding\//, /^\/manifest\.webmanifest$/]
+const DATA_PATHS = [/^\/api\//, /^\/healthz/, /^\/dav\//, /^\/feeds\//, /^\/oauth\//, /^\/\.well-known\//, /^\/mcp(\/|$)/, /^\/app\/sign-in$/, /^\/branding\//, /^\/manifest\.webmanifest$/]
 const CODE_DESTINATIONS = new Set(['script', 'worker', 'sharedworker', 'style', 'serviceworker'])
 
 // The page's policy follows the owner's settings only in connect-src (the

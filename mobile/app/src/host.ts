@@ -10,8 +10,15 @@ import { installPlatform } from '@shared/platform'
 import { createPlatform, type Host } from './platform'
 import { opSqlite } from './storage/opSqlite'
 
+// The platform port's preferences: the device settings of the signed-in account.
+const storage = createMMKV({ id: 'opentodo.prefs' })
+
+/** Sign-out: the account's device settings go with its database (native-app "Local data on the phone"). */
+export function clearDevicePrefs(): void {
+  storage.clearAll()
+}
+
 export function reactNativeHost(): Host {
-  const storage = createMMKV({ id: 'opentodo.prefs' })
   return {
     appState: () => AppState.currentState ?? 'unknown',
     onAppState(fn) {
@@ -29,3 +36,4 @@ export function reactNativeHost(): Host {
 export function installAppPlatform(): void {
   installPlatform(createPlatform(reactNativeHost()))
 }
+

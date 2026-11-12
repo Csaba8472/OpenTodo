@@ -14,6 +14,7 @@ import { useSyncStatus } from '../lib/sync'
 import type { User } from '../lib/types'
 import { setWelcomeSeen, welcomeSeen } from '../lib/userPrefs'
 import { act } from './actionError'
+import { useConsentPending } from './OAuthConsentHost'
 
 export const ISSUES_URL = 'https://github.com/OpenTodoApp/OpenTodo/issues'
 export const REPO_URL = 'https://github.com/OpenTodoApp/OpenTodo'
@@ -38,9 +39,10 @@ export function useWelcome(user: Pick<User, 'role' | 'createdAt'>, now = Date.no
   const hasTask = useHasTask()
   const demo = useDemo()
   const synced = useSyncStatus().lastSyncedAt !== null
+  const consent = useConsentPending()
   const shown = useRef(false)
   const fresh = typeof user.createdAt === 'number' && user.createdAt > 0 && now - user.createdAt < WELCOME_WINDOW_MS
-  if (user.role !== 'owner' || demo || !fresh) return false
+  if (user.role !== 'owner' || demo || !fresh || consent) return false
   if (!synced || row === undefined || hasTask === undefined) return false
   if (welcomeSeen(row)) { shown.current = false; return false }
   if (!hasTask) shown.current = true

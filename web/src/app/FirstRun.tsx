@@ -34,6 +34,7 @@ import { installPrompt, useInstallPrompt } from './installPrompt'
 import { taskDefaults } from './listActions'
 import { QuickAdd, type QuickAddInput } from './QuickAdd'
 import { navigate, useRoute } from './router'
+import { useConsentPending } from './OAuthConsentHost'
 import { useWelcome } from './WelcomeDialog'
 import { t } from '../lib/i18n'
 import { act } from './actionError'
@@ -42,7 +43,7 @@ import { act } from './actionError'
  * Whether the start guide belongs on screen on its own: a fresh account (no row, or
  * not marked done) with nothing in it yet, after this device's first sync (so a
  * seeded sandbox or a second device never shows it before the account's rows
- * arrive), never on the demo, and not while the owner's welcome note is open.
+ * arrive), never on the demo, and not while the owner's welcome note or a consent is open.
  */
 export function useFirstRun(user: Pick<User, 'role' | 'createdAt'>): boolean {
   const row = useUserPrefsRow()
@@ -52,9 +53,10 @@ export function useFirstRun(user: Pick<User, 'role' | 'createdAt'>): boolean {
   const demo = useDemo()
   const synced = useSyncStatus().lastSyncedAt !== null
   const welcome = useWelcome(user)
+  const consent = useConsentPending()
   // Once shown, the guide stays through the first task (step one adds it) until it is marked done.
   const shown = useRef(false)
-  if (demo || !synced || row === undefined || hasTask === undefined) return false
+  if (demo || consent || !synced || row === undefined || hasTask === undefined) return false
   if (firstRunDone(row)) { shown.current = false; return false }
   // The welcome note comes first; the guide opens once it is closed.
   if (welcome) return false
