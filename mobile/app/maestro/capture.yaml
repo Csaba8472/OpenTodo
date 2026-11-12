@@ -1,0 +1,36 @@
+# Capture (native-app-everyday 3.1; spec "Fast capture"): the add button opens the sheet
+# with the field focused; "Call Anna tomorrow 9am p1" with Work picked from the toolbar
+# becomes "Call Anna" in Work, due tomorrow at 9:00 with the highest priority; the field is
+# empty again and the sheet stays open. A task captured from Today without a date gets
+# today's. (The spec's line with `#Work` is test/everyday.test.ts: Maestro's Android text
+# input stops at a `#`.)
+appId: ${APP_ID}
+---
+- runScript:
+    file: scripts/create-project.js
+    env:
+      NAME: Work
+- runFlow: common/sign-in.yaml
+- tapOn: Add task
+- inputText: Call Anna tomorrow 9am p1
+- tapOn: Project
+- tapOn: Work
+- tapOn: Add
+- extendedWaitUntil:
+    visible: Added
+    timeout: 5000
+- inputText: Water the plants
+- pressKey: Enter
+- back
+- runScript:
+    file: scripts/find-task.js
+    env:
+      TITLE: Call Anna
+- runScript:
+    file: scripts/check-task.js
+    env:
+      CHECK: "t.priority === 1 && t.project_id === output.projectId && t.due && t.due.time === '09:00'"
+- extendedWaitUntil:
+    visible: Water the plants
+    timeout: 10000
+- runFlow: common/sign-out.yaml

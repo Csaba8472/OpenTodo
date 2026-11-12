@@ -1,0 +1,31 @@
+# Tabs, Browse and Search (native-app-everyday 1.1, 5.1, 5.2): every tab opens its list;
+# a project opens from Browse with its tasks; Search finds a task from local data.
+appId: ${APP_ID}
+---
+- runScript:
+    file: scripts/create-project.js
+    env:
+      NAME: Groceries
+- runScript:
+    file: scripts/create-task.js
+    env:
+      TITLE: Pay the invoice
+- runFlow: common/sign-in.yaml
+- tapOn: Inbox
+- tapOn: Upcoming
+- tapOn: Browse
+- tapOn: Groceries
+- extendedWaitUntil:
+    visible: No tasks yet
+    timeout: 5000
+- back
+- tapOn: Search
+- tapOn:
+    text: Search tasks and notes
+    optional: true
+- inputText: invoice
+- extendedWaitUntil:
+    visible: Pay the invoice
+    timeout: 5000
+- tapOn: Today
+- runFlow: common/sign-out.yaml

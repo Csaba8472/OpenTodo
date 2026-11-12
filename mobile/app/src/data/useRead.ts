@@ -4,7 +4,7 @@
 import { db } from '@shared/db'
 import { useEffect, useState } from 'react'
 import { AppState } from 'react-native'
-import type { SqliteDatabase } from './storage/adapter'
+import type { SqliteDatabase } from '../storage/adapter'
 
 export function useRead<T>(read: () => Promise<T>, stores: readonly string[], key: string): T | undefined {
   const [value, setValue] = useState<{ key: string; value: T } | undefined>(undefined)

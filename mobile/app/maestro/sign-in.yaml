@@ -3,8 +3,7 @@
 # browser"). Against a server with an account: maestro/run.sh starts one. The sheet shares
 # the browser's cookies, so a run that finds a session only confirms. Nothing of the web
 # app's own may cover the confirmation: a fresh owner's welcome note and start guide wait.
-appId: app.open-todo.ios
+appId: ${APP_ID}
 ---
 - runFlow: common/sign-in.yaml
-- tapOn: Sign out
-- assertVisible: Your server
+- runFlow: common/sign-out.yaml

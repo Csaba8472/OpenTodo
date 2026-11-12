@@ -7,11 +7,22 @@
 // app ships under the existing App Store record as version 2.0.0, on TestFlight first,
 // and as the next version of the Android app.
 import type { ExpoConfig } from 'expo/config'
+import { withAndroidManifest, type ConfigPlugin } from 'expo/config-plugins'
 
-// A build for your own iPhone, signed with your own Apple ID, needs a bundle id of its own
-// (app.open-todo.ios belongs to the project's team): `OPENTODO_APP_ID=com.you.opentodo
-// npx expo prebuild`. Unset, the project's id. Read only when the native project is made.
-const iosId = process.env.OPENTODO_APP_ID?.trim() || 'app.open-todo.ios'
+// A build for your own phone needs an id of its own: on iOS, signed with your own Apple ID
+// (app.open-todo.ios belongs to the project's team); on Android, next to an installed
+// OpenTodo app signed with the project's key. `OPENTODO_APP_ID=com.you.opentodo npx expo
+// prebuild`. Unset, the project's ids. Read only when the native projects are made.
+const ownId = process.env.OPENTODO_APP_ID?.trim()
+
+// Plain http to a server, as the Android shell allows (its network_security_config.xml):
+// a home server on the local network often has no certificate. On iOS only the local
+// network (NSAllowsLocalNetworking below).
+const withCleartext: ConfigPlugin = (c) => withAndroidManifest(c, (m) => {
+  const app = m.modResults.manifest.application?.[0]
+  if (app) app.$['android:usesCleartextTraffic'] = 'true'
+  return m
+})
 
 const config: ExpoConfig = {
   name: 'OpenTodo',
@@ -22,7 +33,7 @@ const config: ExpoConfig = {
   // metro.config.js resolves @shared/* itself (with the shared modules' packages).
   experiments: { tsconfigPaths: false },
   ios: {
-    bundleIdentifier: iosId,
+    bundleIdentifier: ownId || 'app.open-todo.ios',
     supportsTablet: false,
     // Light and dark with the system (on Android this needs expo-system-ui, not installed yet).
     userInterfaceStyle: 'automatic',
@@ -35,8 +46,8 @@ const config: ExpoConfig = {
   },
   // The Android shell's application id (mobile/android/app/build.gradle.kts).
   android: {
-    package: 'app.opentodo',
+    package: ownId || 'app.opentodo',
   },
 }
 
-export default config
+export default withCleartext(config)

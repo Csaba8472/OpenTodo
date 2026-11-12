@@ -2,6 +2,7 @@
 // never synced (natural-language-capture: "Per-device parsing toggle").
 import { activeLanguages, VOCABULARIES, type DayMonthOrder } from './vocab'
 import { readJSON, writeJSON } from '../deviceStorage'
+import { platform } from '../platform'
 
 export interface QuickAddSettings {
   /** Parse natural language in quick add. */
@@ -13,7 +14,8 @@ export interface QuickAddSettings {
 export const DEFAULT_QUICK_ADD_SETTINGS: QuickAddSettings = { enabled: true, languages: null }
 
 const KEY = 'opentodo.quickadd'
-const EVENT = 'opentodo:quickadd-settings'
+/** This instance's listeners; another instance's change arrives through the platform's preferences. */
+const listeners = new Set<() => void>()
 
 export function loadQuickAddSettings(): QuickAddSettings {
   // Private mode, blocked storage or an unreadable value: parsing still works with the defaults.
@@ -31,19 +33,16 @@ export function loadQuickAddSettings(): QuickAddSettings {
 
 export function saveQuickAddSettings(s: QuickAddSettings): void {
   writeJSON(KEY, s) // per-device convenience only
-  if (typeof window !== 'undefined') window.dispatchEvent(new Event(EVENT))
+  for (const fn of [...listeners]) fn()
 }
 
 /** Call `fn` whenever the settings change in this tab or another tab. */
 export function onQuickAddSettingsChange(fn: () => void): () => void {
-  const onStorage = (e: StorageEvent) => {
-    if (e.key === KEY) fn()
-  }
-  window.addEventListener(EVENT, fn)
-  window.addEventListener('storage', onStorage)
+  listeners.add(fn)
+  const off = platform.prefs.onChange((key) => { if (key === KEY) fn() })
   return () => {
-    window.removeEventListener(EVENT, fn)
-    window.removeEventListener('storage', onStorage)
+    listeners.delete(fn)
+    off()
   }
 }
 

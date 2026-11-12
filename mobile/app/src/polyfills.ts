@@ -18,8 +18,19 @@ interface RuntimeScheduler {
 export function installPolyfills(): void {
   const rs = g.nativeRuntimeScheduler as RuntimeScheduler | undefined
   if (rs) {
-    g.setImmediate = (fn: (...a: unknown[]) => void, ...args: unknown[]) => rs.unstable_scheduleCallback(rs.unstable_NormalPriority, () => fn(...args))
-    g.clearImmediate = (task: unknown) => rs.unstable_cancelCallback(task)
+    // Only a task scheduled here is cancelled: the native cancel aborts the process on
+    // anything else (an undefined handle, or one from React Native's own setImmediate,
+    // which libraries such as the gesture handler clear).
+    const live = new Set<unknown>()
+    g.setImmediate = (fn: (...a: unknown[]) => void, ...args: unknown[]) => {
+      const task = rs.unstable_scheduleCallback(rs.unstable_NormalPriority, () => { live.delete(task); fn(...args) })
+      live.add(task)
+      return task
+    }
+    g.clearImmediate = (task: unknown) => {
+      if (!live.delete(task)) return
+      rs.unstable_cancelCallback(task)
+    }
   }
 
   if (typeof g.DOMException !== 'function') {

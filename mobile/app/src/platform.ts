@@ -80,6 +80,8 @@ export function createPlatform(host: Host): Platform {
     database: (declared) => sqliteDatabase(declared, host.sql),
     // The app's own storage is not evicted under pressure the way a site's can be.
     persistStorage: async () => true,
+    // The unwrapped account key never reaches SQLite or MMKV (native-app-everyday D7).
+    memoryOnlyKeys: true,
     shell: () => undefined,
     timeZone: {
       current: () => host.timeZone() || 'UTC',

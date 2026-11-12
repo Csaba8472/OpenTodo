@@ -9,7 +9,7 @@
 // candidates through the phone's indexes, not by scanning the table.
 import { DatabaseSync } from 'node:sqlite'
 import { refreshViewerZone } from '@shared/dates'
-import { todayList, withoutArchived } from '@shared/dayLists'
+import { nextDays, projectOpenList, todayList, withoutArchived } from '@shared/dayLists'
 import { db, useDatabase as openDatabaseNamed } from '@shared/db'
 import { inboxTasks } from '@shared/inbox'
 import { resetModuleState } from '@shared/moduleState'
@@ -18,7 +18,7 @@ import { visibleTaskSets } from '@shared/trash'
 import type { Project, Task } from '@shared/types'
 import { CURRENT_WORKSPACE_KEY } from '@shared/workspaces'
 import { sqliteDatabase } from '../../src/storage/adapter'
-import { inboxList, todayTasks } from '../../src/storage/lists'
+import { inboxList, projectTasks, todayTasks, upcomingDays } from '../../src/storage/lists'
 import { nodeSqlite } from './nodeSqlite'
 
 const TODAY = '2026-11-10'
@@ -78,7 +78,7 @@ afterEach(() => resetModuleState())
 async function webLists() {
   const [{ here }, projects] = await Promise.all([visibleTaskSets(), db.projects.toArray()])
   const all = withoutArchived(here, projects)
-  return { today: todayList(all, TODAY), inbox: inboxTasks(all, here) }
+  return { today: todayList(all, TODAY), inbox: inboxTasks(all, here), upcoming: nextDays(all, TODAY, 14), all }
 }
 
 const ids = (list: Task[]) => list.map((t) => t.id)
@@ -94,6 +94,14 @@ describe('Today and Inbox from the index', () => {
     expect(want.inbox.length).toBeGreaterThan(50)
     expect(ids(await todayTasks(TODAY))).toEqual(ids(want.today))
     expect(ids(await inboxList())).toEqual(ids(want.inbox))
+    // native-app-everyday 2.1: Upcoming's days and a project's open tasks, the same way.
+    const upcoming = await upcomingDays(TODAY, 14)
+    expect(upcoming.map((d) => d.date)).toEqual(want.upcoming.map((d) => d.date))
+    expect(upcoming.map((d) => ids(d.tasks))).toEqual(want.upcoming.map((d) => ids(d.tasks)))
+    expect(want.upcoming.flatMap((d) => d.tasks).length).toBeGreaterThan(5)
+    for (const pid of ['p0', 'p1', 'p5']) {
+      expect(ids(await projectTasks(pid)).sort()).toEqual(ids(projectOpenList(want.all, pid)).sort())
+    }
   })
 
   it('match the web lists in another workspace', async () => {

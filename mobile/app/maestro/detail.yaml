@@ -1,0 +1,26 @@
+# The task detail (native-app-everyday 4.1, 4.2): tapping a row pushes it; the title and
+# the notes are edited in place without a Save button; the date sheet's quick choice
+# reschedules; Back returns to the list.
+appId: ${APP_ID}
+---
+- runScript:
+    file: scripts/create-task.js
+    env:
+      TITLE: Renew passport
+- runFlow: common/sign-in.yaml
+- tapOn: Renew passport
+- tapOn:
+    text: Notes
+    index: -1
+- inputText: Bring two photos
+- tapOn: When
+- tapOn: Tomorrow
+- runScript:
+    file: scripts/check-task.js
+    env:
+      CHECK: "t.description === 'Bring two photos' && !!t.due"
+- back
+- extendedWaitUntil:
+    visible: Today
+    timeout: 5000
+- runFlow: common/sign-out.yaml

@@ -19,6 +19,19 @@ Every package in `package.json`, with the reason it is there (OpenSpec change `n
 - `expo-secure-store`: the Keychain or Keystore for the sign-in tokens (design D5), never MMKV.
 - `expo-haptics`: the tap when a task is completed (design D7).
 - `react-native-safe-area-context`: the screen insets (the notch, the home indicator) for the screens drawn edge to edge; 5.10.1, the version Expo SDK 58 is built with, which the navigation stack of the everyday screens needs too.
+- `react-native-screens`: native navigation containers (UINavigationController, the Android fragment stack), the native tab bars and the form sheets with detents (native-app-everyday D1, D2; foundation D7). 4.30.1, inside Expo SDK 58's range.
+- `@react-navigation/native`: the navigation state and the container over react-native-screens.
+- `@react-navigation/native-stack`: each tab's stack and the sheets, on the native stack.
+- `@react-navigation/bottom-tabs`: the tabs, through its native tab navigator (`@react-navigation/bottom-tabs/unstable`), which draws the platform's own tab bar.
+- `react-native-gesture-handler`: the swipe actions of a task row (`ReanimatedSwipeable`) on the UI thread, and the root gesture view.
+- `react-native-reanimated`: the animation runtime the swipe actions run on.
+- `react-native-worklets`: required by `react-native-reanimated` 4 (its worklet runtime, a package of its own).
+- `@shopify/flash-list`: the recycled task lists (design D3); the list spike (everyday 1.2) chose it over `@legendapp/list`.
+- `@legendapp/list`: the list spike's other candidate (everyday 1.2), kept only while the spike's harness runs; removed with the spike.
+- `@expo/ui`: the platform's own controls where React Native has none: the date and time pickers (Material dialogs on Android, SwiftUI on iOS).
+- `expo-symbols`: SF Symbols on iOS and Material Symbols on Android (design D6); on Android its Material Symbols font (about 1 MB) and the tab icons drawn from it.
+- `expo-clipboard`: Copy link in a task's menu.
+- `expo-linking`: the scheme the sign-in sheet returns to, read by the navigation container.
 - `dexie`: the local database's schema, which `web/src/lib/db.ts` declares on a Dexie instance, and the zones the adapter's transactions use (`src/storage/scope.ts`). Dexie never opens a database in the app; the adapter does.
 
 ## Overrides
@@ -38,5 +51,6 @@ Every package in `package.json`, with the reason it is there (OpenSpec change `n
 - `eslint`: the lint (`npm run lint`).
 - `typescript-eslint`: ESLint's TypeScript parser.
 - `eslint-plugin-react-hooks`: the Rules of Hooks.
+- `@testing-library/react-native`: component tests of the screens on Linux (everyday D9).
 - `fake-indexeddb`: IndexedDB in Node for the adapter's conformance suite (`test/storage`), which runs every scenario on Dexie, as the web does, and on the adapter. 6.2.6, the newest release at least 14 days old (web has 6.2.7).
 - `@babel/plugin-transform-async-to-generator`: async functions as generators driven by the global Promise (`babel.config.js`), so the adapter's transaction zone follows an `await` on Hermes (design D4). Already installed by Expo's preset; named here because `babel.config.js` loads it.

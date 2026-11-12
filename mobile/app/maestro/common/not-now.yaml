@@ -1,5 +1,5 @@
 # Safari's "Save Password?" over the sign-in sheet: declined, when it is there.
-appId: app.open-todo.ios
+appId: ${APP_ID}
 ---
 - tapOn:
     text: Not Now

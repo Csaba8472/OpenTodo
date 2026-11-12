@@ -1,11 +1,14 @@
 # Signs in through the system's authentication sheet (design D5) and waits for Today: the
 # address, the sheet, the password when the sheet has no session, the confirmation. Run
 # from the flows in the folder above with SERVER, EMAIL and PASSWORD.
-appId: app.open-todo.ios
+appId: ${APP_ID}
 ---
-- launchApp:
-    clearState: true
-    clearKeychain: true
+# Stopped first, then cleared, then launched: on Android, clearing a running app made the
+# system start it again at the same moment as the launch, and it came up 18 s late.
+- stopApp
+- clearState
+- clearKeychain
+- launchApp
 - tapOn: Server address
 - inputText: ${SERVER}
 - tapOn: Continue
@@ -15,7 +18,7 @@ appId: app.open-todo.ios
     index: 0
     optional: true
 - extendedWaitUntil:
-    visible: Password|Sign in to the OpenTodo app on iPhone\?
+    visible: Password|Sign in to the OpenTodo app on (iPhone|Android)\?
     timeout: 40000
 - runFlow:
     when:
@@ -32,12 +35,12 @@ appId: app.open-todo.ios
           index: -1
       # The system offers to keep the password, sometimes only after the confirmation is up.
       - extendedWaitUntil:
-          visible: Not Now|Sign in to the OpenTodo app on iPhone\?
+          visible: Not Now|Sign in to the OpenTodo app on (iPhone|Android)\?
           timeout: 40000
       - runFlow:
           file: not-now.yaml
 - extendedWaitUntil:
-    visible: Sign in to the OpenTodo app on iPhone\?
+    visible: Sign in to the OpenTodo app on (iPhone|Android)\?
     timeout: 40000
 - runFlow:
     file: not-now.yaml

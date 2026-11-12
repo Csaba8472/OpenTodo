@@ -444,16 +444,6 @@ export function templateFileName(name: string): string {
   return `opentodo-template-${slug || 'project'}.json`
 }
 
-/** Offer a file as a download from a Blob URL (no server round trip). */
-export function downloadJSON(data: unknown, name: string): void {
-  const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }))
-  const a = document.createElement('a')
-  a.href = url
-  a.download = name
-  a.click()
-  setTimeout(() => URL.revokeObjectURL(url), 60_000)
-}
-
 /** The logical today (day-boundary D5) used as `template.day` when saving. */
 export function today(): string {
   return logicalToday()

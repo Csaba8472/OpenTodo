@@ -5,7 +5,7 @@ import { ActivityIndicator, KeyboardAvoidingView, Linking, Pressable, StyleSheet
 import { checkServer, UPDATE_GUIDE } from './server'
 import { SignInError, type SignInProblem } from './session'
 import { signIn, type Account } from './signIn'
-import { useColors } from './theme'
+import { useColors } from './ui/theme'
 
 const SIGN_IN_MESSAGES: Record<Exclude<SignInProblem, 'cancelled'>, string> = {
   failed: 'Sign-in didn’t finish. Try again.',
@@ -62,7 +62,7 @@ export function ServerScreen({ onSignedIn }: { onSignedIn: (account: Account) =>
         />
         {problem && (
           <View accessibilityLiveRegion="polite">
-            <Text style={[styles.note, { color: c.error }]}>{problem.message}</Text>
+            <Text style={[styles.note, { color: c.danger }]}>{problem.message}</Text>
             {problem.update && (
               <Text accessibilityRole="link" onPress={() => Linking.openURL(UPDATE_GUIDE)} style={[styles.note, { color: c.accent }]}>
                 How to update the server

@@ -1,0 +1,14 @@
+# Signs out from Settings (Browse → Settings → Sign out, confirmed) and waits for the server screen.
+appId: ${APP_ID}
+---
+- tapOn: Browse
+- scrollUntilVisible:
+    element: Settings
+- tapOn: Settings
+- tapOn: Sign out
+- tapOn:
+    text: (?i)sign out
+    index: -1
+- extendedWaitUntil:
+    visible: Your server
+    timeout: 20000

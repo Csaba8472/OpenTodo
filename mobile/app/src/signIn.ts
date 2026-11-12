@@ -57,12 +57,21 @@ export async function signIn(server: string): Promise<Account> {
   }
 }
 
+const signedOut = new Set<() => void>()
+
+/** Called after a sign-out from anywhere in the app (Settings), so the root shows the server screen. */
+export function onSignOut(fn: () => void): () => void {
+  signedOut.add(fn)
+  return () => { signedOut.delete(fn) }
+}
+
 /** Signs out (design D5) and deletes the account's database, tokens and record from the phone. */
 export async function signOut(): Promise<void> {
   // No exchange runs on a token that is about to end, or writes into a database being deleted.
   await stopAccountSync()
   await session.signOut()
   await forgetLocal()
+  for (const fn of [...signedOut]) fn()
 }
 
 /** What is left on the phone when the server ended the session: nothing of the account. */

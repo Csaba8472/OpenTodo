@@ -59,6 +59,12 @@ export interface Platform {
   database?<D extends Dexie>(declared: D): D
   /** Asks the host to keep local data under storage pressure; whether it will. */
   persistStorage(): Promise<boolean>
+  /**
+   * The unwrapped account key stays in memory only, never in the local database (the app,
+   * native-app-everyday D7: its database is SQLite, and a cold start asks for the
+   * passphrase again). Absent on the web, which keeps the non-extractable key in IndexedDB.
+   */
+  readonly memoryOnlyKeys?: boolean
   /** The bridge of a native shell around the web app (lib/shell.ts checks its shape), if any. */
   shell(): OpenTodoShell | undefined
   /** The device's IANA zone, and when to read it again (a travelling device). */

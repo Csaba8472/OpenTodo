@@ -13,6 +13,7 @@ import {
   checkRecordParams, createKeyRecord, decryptValue, KeyRecordParamsError, isEnvelope, resetWithRecoveryKey, rewrapWithPassphrase, unlockWithPassphrase, unlockWithRecoveryKey,
   b64url, fromB64url, type KeyRecord,
 } from './crypto'
+import { platform } from './platform'
 import { db, getMeta, setMeta } from './db'
 import type { Entity, EncryptionStatus } from './types'
 import { t, msg } from './i18n'
@@ -99,6 +100,7 @@ const memKeys = new Map<string, CryptoKey | null>()
 /** This device's account key, or null when locked or never enrolled. */
 export async function currentKey(): Promise<CryptoKey | null> {
   if (memKeys.has(db.name)) return memKeys.get(db.name) ?? null
+  if (platform.memoryOnlyKeys) return null
   const k = await getMeta<CryptoKey | null>(K_KEY, null)
   memKeys.set(db.name, k)
   return k
@@ -106,7 +108,11 @@ export async function currentKey(): Promise<CryptoKey | null> {
 
 async function storeKey(key: CryptoKey | null, record?: KeyRecord): Promise<void> {
   if (key && key.extractable) throw new Error('refusing to store an extractable account key')
-  if (key) {
+  if (platform.memoryOnlyKeys) {
+    // Only the record's date is kept, so the next unlock knows which wrap it opened.
+    await setMeta(K_KEY_FOR, key ? record?.createdAt ?? null : null)
+    await db.meta.delete(K_KEY)
+  } else if (key) {
     await setMeta(K_KEY, key)
     await setMeta(K_KEY_FOR, record?.createdAt ?? null)
   } else {
