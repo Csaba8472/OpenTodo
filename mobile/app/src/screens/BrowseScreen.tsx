@@ -2,6 +2,8 @@
 // saved views, Notes, the Logbook and Settings.
 import { TabletView } from '../../modules/opentodo-shared-container/TabletView'
 import { move } from '../data/actions'
+import { confirmDelete, renameTo } from '../data/labelActions'
+import { request } from '../nav/sheets'
 import { useTablet } from '../nav/tabletContext'
 import { db } from '@shared/db'
 import { activeLabels } from '@shared/labels'
@@ -10,7 +12,8 @@ import { useNavigation, type NavigationProp } from '@react-navigation/native'
 import { ScrollView, StyleSheet } from 'react-native'
 import { useRead } from '../data/useRead'
 import type { StackParams } from '../nav/types'
-import { Group, Row } from '../ui/Grouped'
+import { choose } from '../ui/choose'
+import { Group, Row, type RowAction } from '../ui/Grouped'
 import { t } from '../ui/i18n'
 import { useTabBarInset } from '../ui/insets'
 import { useColors } from '../ui/theme'
@@ -55,6 +58,15 @@ export function BrowseScreen({ sidebar = false }: { sidebar?: boolean }) {
     if (sidebar && tablet) tablet.destination(name, params)
     else (nav.navigate as (name: string, params?: object) => void)(name, params)
   }
+  // A label's actions (native-app-labels): a long press, or the row's accessibility actions.
+  const labelActions = (label: Label): RowAction[] => [
+    { name: 'rename', label: t('Rename'), run: () => {
+      const r = request<string>()
+      ;(nav.navigate as (name: string, params?: object) => void)('Rename', { request: r.id, title: t('Rename label'), value: label.name, label: t('Label name') })
+      void r.answer.then((name) => { if (name && name !== label.name) void renameTo(label, name) })
+    } },
+    { name: 'delete', label: t('Delete label…'), run: () => { void confirmDelete(label) } },
+  ]
   const data = useRead(read, ['projects', 'labels', 'views'], 'browse')
   return (
     <ScrollView contentContainerStyle={[styles.page, { paddingBottom: 48 + bottom }]} contentInsetAdjustmentBehavior="automatic" style={{ backgroundColor: c.grouped }}>
@@ -71,7 +83,10 @@ export function BrowseScreen({ sidebar = false }: { sidebar?: boolean }) {
       </Group>
       {!!data?.labels.length && (
         <Group title={t('Labels')}>
-          {data.labels.map((l, i) => <Row icon="label" key={l.id} label={l.name} last={i === data.labels.length - 1} onPress={() => go('Label', { id: l.id, name: l.name })} tint={l.color || undefined} />)}
+          {data.labels.map((l, i) => {
+            const actions = labelActions(l)
+            return <Row actions={actions} icon="label" key={l.id} label={l.name} last={i === data.labels.length - 1} onLongPress={() => choose(l.name, actions.map((a) => ({ label: a.label, run: a.run, destructive: a.name === 'delete' })))} onPress={() => go('Label', { id: l.id, name: l.name })} tint={l.color || undefined} />
+          })}
         </Group>
       )}
       {!!data?.views.length && (

@@ -14,8 +14,11 @@ export function Group({ title, children }: { title?: string; children: ReactNode
   )
 }
 
-export function Row({ icon, label, detail, onPress, tint, depth = 0, last, chevron = true, right }: {
-  icon?: IconName; label: string; detail?: string; onPress?(): void; tint?: string; depth?: number; last?: boolean; chevron?: boolean; right?: ReactNode
+/** A row's further actions: a long press, and the same as accessibility actions. */
+export interface RowAction { name: string; label: string; run(): void }
+
+export function Row({ icon, label, detail, onPress, onLongPress, actions, tint, depth = 0, last, chevron = true, right }: {
+  icon?: IconName; label: string; detail?: string; onPress?(): void; onLongPress?(): void; actions?: RowAction[]; tint?: string; depth?: number; last?: boolean; chevron?: boolean; right?: ReactNode
 }) {
   const c = useColors()
   const [hovered, setHovered] = useState(false)
@@ -23,10 +26,13 @@ export function Row({ icon, label, detail, onPress, tint, depth = 0, last, chevr
     <Pressable
       accessibilityLabel={detail ? `${label}, ${detail}` : label}
       accessibilityRole={onPress ? 'button' : 'text'}
+      accessibilityActions={actions?.map((a) => ({ name: a.name, label: a.label }))}
+      onAccessibilityAction={(e) => actions?.find((a) => a.name === e.nativeEvent.actionName)?.run()}
       android_ripple={onPress ? { color: c.field } : undefined}
       disabled={!onPress}
       onHoverIn={() => setHovered(true)}
       onHoverOut={() => setHovered(false)}
+      onLongPress={onLongPress}
       onPress={onPress}
       style={({ pressed }) => [styles.row, { paddingLeft: 16 + depth * 18, backgroundColor: pressed || (hovered && !!onPress) ? c.field : 'transparent' }]}
     >

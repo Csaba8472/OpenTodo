@@ -1,0 +1,45 @@
+# A label's actions on the phone (native-app-labels): a long press on a label in Browse
+# renames it; a second one deletes it after a confirmation that counts its tasks, and the
+# server has the label deleted and the task kept without it.
+appId: ${APP_ID}
+---
+- runScript:
+    file: scripts/create-label.js
+    env:
+      NAME: errand
+- runScript:
+    file: scripts/create-task.js
+    env:
+      TITLE: Post the parcel
+      WITH_LABEL: '1'
+- runFlow: common/sign-in.yaml
+- tapOn: Browse
+- scrollUntilVisible:
+    element: errand
+- longPressOn: errand
+- tapOn: Rename
+- extendedWaitUntil:
+    visible: Rename label
+    timeout: 5000
+- eraseText: 20
+- inputText: Errands
+- tapOn:
+    text: Rename
+    index: -1
+- extendedWaitUntil:
+    visible: Errands
+    timeout: 5000
+- longPressOn: Errands
+- tapOn: Delete label…
+- extendedWaitUntil:
+    visible: It is removed from 1 task. The tasks themselves stay.
+    timeout: 5000
+- tapOn:
+    text: (?i)delete label
+    below:
+      text: It is removed from 1 task.*
+- extendedWaitUntil:
+    notVisible: Errands
+    timeout: 5000
+- runScript: scripts/label-deleted.js
+- runFlow: common/sign-out.yaml

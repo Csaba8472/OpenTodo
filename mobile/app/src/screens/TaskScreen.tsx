@@ -12,13 +12,14 @@ import { priorityName } from '@shared/priority'
 import type { Attachment, Comment, Label, Priority, Project, Task } from '@shared/types'
 import type { NativeStackScreenProps } from '@react-navigation/native-stack'
 import { useEffect, useMemo, useState } from 'react'
-import { ActionSheetIOS, Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { session } from '../appSession'
 import { complete, schedule, setPriority, trash } from '../data/actions'
 import { useRead } from '../data/useRead'
 import { TaskDraft } from '../data/taskDraft'
 import { usePickers } from '../nav/pickers'
 import type { StackParams } from '../nav/types'
+import { choose } from '../ui/choose'
 import { t } from '../ui/i18n'
 import { Icon, type IconName } from '../ui/Icon'
 import { useTabBarInset } from '../ui/insets'
@@ -69,15 +70,6 @@ function FieldRow({ icon, label, value, c, onPress }: { icon: IconName; label: s
 
 function Heading({ text, c }: { text: string; c: Colors }) {
   return <Text accessibilityRole="header" style={[styles.heading, { color: c.muted }]}>{text}</Text>
-}
-
-/** A choice among `options`, the platform's own: an action sheet on iOS, a dialog list on Android. */
-function choose(title: string, options: { label: string; run(): void }[]): void {
-  if (Platform.OS === 'ios') {
-    ActionSheetIOS.showActionSheetWithOptions({ title, options: [...options.map((o) => o.label), t('Cancel')], cancelButtonIndex: options.length }, (i) => options[i]?.run())
-    return
-  }
-  Alert.alert(title, undefined, [...options.map((o) => ({ text: o.label, onPress: o.run })), { text: t('Cancel'), style: 'cancel' as const }], { cancelable: true })
 }
 
 export function TaskScreen({ route, navigation }: NativeStackScreenProps<StackParams, 'Task'>) {

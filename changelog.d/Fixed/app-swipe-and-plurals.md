@@ -1,0 +1,1 @@
+- **Lists in the app scroll when a finger drifts sideways.** A task row's swipe now starts after 24 dp sideways instead of 10, so a scroll that starts a little diagonally moves the list instead of the row; and messages with a count (such as how many tasks lose a label) no longer fail on Android, where the app's JavaScript engine has no plural rules of its own.

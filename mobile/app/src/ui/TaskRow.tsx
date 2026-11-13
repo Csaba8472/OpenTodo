@@ -41,6 +41,9 @@ export interface TaskRowProps {
   onAction(task: Task, action: RowAction): void
 }
 
+/** How far a finger moves sideways before a row's swipe starts, in dp. */
+const SWIPE_START = 24
+
 const PRIORITY_TONE = (c: Colors, p: number) => (p === 1 ? c.danger : p === 2 ? c.warning : c.accent)
 
 function Action({ icon, label, color, c, onPress }: { icon: IconName; label: string; color: string; c: Colors; onPress(): void }) {
@@ -167,6 +170,10 @@ function TaskRowView(p: TaskRowProps) {
   return (
     <TabletView taskId={tablet ? task.id : ''}><Swipeable
       ref={swipe}
+      // A swipe starts after 24 dp sideways, not the library's 10: a thumb drifts that much
+      // sideways while it starts to scroll, and the row then took the drag from the list.
+      dragOffsetFromLeft={SWIPE_START}
+      dragOffsetFromRight={-SWIPE_START}
       friction={1.4}
       leftThreshold={96}
       onSwipeableWillOpen={(dir) => {

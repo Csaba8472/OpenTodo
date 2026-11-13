@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatMessage, formatNumberIn, messageShape, MessageSyntaxError, parseMessage, render, compile } from './format'
+import { fallbackPluralCategory, formatMessage, formatNumberIn, messageShape, MessageSyntaxError, parseMessage, render, compile } from './format'
 
 const TASKS = '{n, plural, one {# task} other {# tasks}}'
 
@@ -79,5 +79,29 @@ describe('message formatter (app-localization D2)', () => {
     expect(messageShape('Hi {name}, <b>{n, plural, one {# task} other {# tasks}}</b>')).toEqual({
       args: ['n', 'name'], tags: ['b'], plurals: { n: ['one', 'other'] },
     })
+  })
+})
+
+describe('plurals without Intl.PluralRules (the native app on Hermes)', () => {
+  it('chooses what Intl.PluralRules chooses for the shipped languages', () => {
+    for (const locale of ['en', 'de', 'fr', 'es', 'it', 'pt', 'zh']) {
+      const rules = new Intl.PluralRules(locale)
+      for (const n of [0, 1, 1.5, 2, 3, 5, 11, 21, 100, 101, 1000]) {
+        expect([locale, n, fallbackPluralCategory(locale, n)]).toEqual([locale, n, rules.select(n)])
+      }
+    }
+  })
+
+  it('renders a plural message when the engine has no Intl.PluralRules', () => {
+    const original = Intl.PluralRules
+    try {
+      ;(Intl as { PluralRules?: unknown }).PluralRules = undefined
+      const message = '{n, plural, one {# task} other {# tasks}}'
+      expect(formatMessage(message, { n: 1 }, 'en')).toBe('1 task')
+      expect(formatMessage(message, { n: 2 }, 'en')).toBe('2 tasks')
+      expect(formatMessage(message, { n: 0 }, 'fr')).toBe('0 task')
+    } finally {
+      ;(Intl as { PluralRules?: unknown }).PluralRules = original
+    }
   })
 })

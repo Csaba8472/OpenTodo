@@ -140,8 +140,23 @@ export function compile(message: string): Part[] {
   return p
 }
 
+/**
+ * The cardinal plural rules of the shipped languages (CLDR), for an engine without
+ * `Intl.PluralRules`: Hermes, the native app's, has none on Android. "one" for exactly 1
+ * in English, German, Spanish and Italian, for 0 and 1 (any fraction below 2) in French
+ * and Portuguese (CLDR's `pt`), and only "other" in Chinese.
+ */
+export function fallbackPluralCategory(locale: string, n: number): string {
+  const lang = locale.toLowerCase().split(/[-_]/)[0]
+  const i = Math.floor(Math.abs(n))
+  if (lang === 'zh' || lang === 'ja' || lang === 'ko') return 'other'
+  if (lang === 'fr' || lang === 'pt') return i === 0 || i === 1 ? 'one' : 'other'
+  return n === 1 ? 'one' : 'other'
+}
+
 const pluralRules = new Map<string, Intl.PluralRules>()
 function pluralCategory(locale: string, n: number): string {
+  if (typeof Intl === 'undefined' || typeof Intl.PluralRules !== 'function') return fallbackPluralCategory(locale, n)
   let r = pluralRules.get(locale)
   if (!r) { r = new Intl.PluralRules(locale); pluralRules.set(locale, r) }
   return r.select(n)

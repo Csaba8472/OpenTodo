@@ -18,6 +18,7 @@ import { LogbookScreen } from '../screens/LogbookScreen'
 import { NoteScreen } from '../screens/NoteScreen'
 import { NotesScreen } from '../screens/NotesScreen'
 import { ProjectScreen } from '../screens/ProjectScreen'
+import { RenameSheet } from '../screens/RenameSheet'
 import { SearchScreen } from '../screens/SearchScreen'
 import { SettingsScreen } from '../screens/SettingsScreen'
 import { TaskMenuSheet } from '../screens/TaskMenuSheet'
@@ -161,6 +162,7 @@ export function Navigator() {
         <Root.Screen component={WhenSheet} name="When" options={{ ...SHEET, sheetAllowedDetents: 'fitToContents' }} />
         <Root.Screen component={ChooseSheet} name="Choose" options={{ ...SHEET, sheetAllowedDetents: [0.6, 1] }} />
         <Root.Screen component={TaskMenuSheet} name="TaskMenu" options={{ ...SHEET, sheetAllowedDetents: 'fitToContents' }} />
+        <Root.Screen component={RenameSheet} name="Rename" options={{ ...SHEET, sheetAllowedDetents: [0.4, 1] }} />
       </Root.Navigator>
       <ToastHost bottom={Platform.OS === 'ios' ? 56 : 80} />
     </NavigationContainer>

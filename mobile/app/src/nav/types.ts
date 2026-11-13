@@ -40,4 +40,5 @@ export type RootParams = {
   When: { request: string; due: Due | null; title?: string }
   Choose: { request: string; kind: 'project' | 'labels'; selected: string[] }
   TaskMenu: { id: string; inbox?: boolean }
+  Rename: { request: string; title: string; value: string; label: string }
 }

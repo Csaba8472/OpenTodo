@@ -1,0 +1,1 @@
+- **Rename and delete labels in the app.** A long press on a label in Browse offers Rename and Delete label…, also as screen reader actions; deleting says how many tasks lose the label, and the tasks stay.
