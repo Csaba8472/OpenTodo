@@ -17,6 +17,14 @@ appId: ${APP_ID}
 - tapOn: Passphrase
 - eraseText: 40
 - inputText: ${PASSPHRASE}
+# The passphrase alone here; biometric.yaml turns biometric unlock on.
+- runFlow:
+    when:
+      visible: Unlock with fingerprint or face next time
+    commands:
+      - tapOn:
+          text: Unlock with fingerprint or face next time
+          index: -1
 - tapOn:
     text: Unlock
     index: -1

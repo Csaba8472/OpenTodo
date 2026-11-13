@@ -9,6 +9,7 @@ import { AppState } from 'react-native'
 import { createMMKV } from 'react-native-mmkv'
 import { installPlatform } from '@shared/platform'
 import { session } from './appSession'
+import { biometricBridge } from './biometric'
 import { liveEventSource } from './live'
 import { createPlatform, type Host } from './platform'
 import { opSqlite } from './storage/opSqlite'
@@ -33,6 +34,10 @@ export function reactNativeHost(): Host {
     timeZone: () => getCalendars()[0]?.timeZone ?? null,
     languages: () => getLocales().map((l) => l.languageTag),
     sql: opSqlite(),
+    shell: (() => {
+      const bridge = biometricBridge()
+      return () => bridge
+    })(),
   }
 }
 

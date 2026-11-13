@@ -60,7 +60,7 @@ for f in "${@:-*.yaml}"; do
       e2ee-unlock.yaml) encrypted=true ;;
       widget.yaml) widget=true ;;
       share.yaml) share=true ;;
-      widget-refresh.yaml|share-picture.yaml|share-check.yaml) ;;
+      widget-refresh.yaml|share-picture.yaml|share-check.yaml|biometric.yaml|biometric-changed.yaml) ;;
       *) flows+=("$g") ;;
     esac
   done
@@ -104,4 +104,18 @@ if $encrypted; then
   curl -fs -b "$data/cookies" -X PUT "$server/api/v1/encryption/keys" -H 'Content-Type: application/json' -H "Origin: $server" \
     -d @"$data/keys.json" > /dev/null
   run e2ee-unlock.yaml
+  # Biometric unlock (native-app-handover 2.1): a fingerprint answers the prompt; a new
+  # fingerprint invalidates the key, and the passphrase comes back.
+  if [ "$platform" = android ]; then
+    trap 'stop_touching; clear_biometrics; kill $pid 2>/dev/null || true; rm -rf "$data"' EXIT
+    enroll_fingerprint 1
+    start_touching
+    run biometric.yaml
+    stop_touching
+    enroll_fingerprint 2
+    start_touching
+    run biometric-changed.yaml
+    stop_touching
+    clear_biometrics
+  fi
 fi

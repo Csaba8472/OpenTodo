@@ -1,9 +1,11 @@
 // The shared library's platform port in the app (OpenSpec change native-app-foundation
 // D3), over the host that src/host.ts reads from React Native (AppState, NetInfo,
 // MMKV, expo-localization). One process, so no leader lock, no broadcast channel and
-// no other instance changing the preferences: the app leads at once. No IndexedDB and
-// no shell bridge. The database db.ts declares opens on SQLite (src/storage, design D4).
+// no other instance changing the preferences: the app leads at once. No IndexedDB; the
+// shell bridge has only biometric unlock (src/biometric.ts, native-app-handover D5). The
+// database db.ts declares opens on SQLite (src/storage, design D4).
 import type { KeyValue, Platform } from '@shared/platform'
+import type { OpenTodoShell } from '@shared/shell'
 import { sqliteDatabase } from './storage/adapter'
 import type { Sql } from './storage/sql'
 
@@ -19,6 +21,8 @@ export interface Host {
   languages(): string[]
   /** The SQLite the local database lives in (op-sqlite on the phone). */
   sql: Sql
+  /** The shell bridge: biometric unlock where the device has it. */
+  shell?: () => OpenTodoShell | undefined
 }
 
 /** Session values: this process only, gone when it ends (sessionStorage on the web). */
@@ -82,7 +86,7 @@ export function createPlatform(host: Host): Platform {
     persistStorage: async () => true,
     // The unwrapped account key never reaches SQLite or MMKV (native-app-everyday D7).
     memoryOnlyKeys: true,
-    shell: () => undefined,
+    shell: () => host.shell?.(),
     timeZone: {
       current: () => host.timeZone() || 'UTC',
       // A travelling phone: read the zone again whenever the app comes to the front.

@@ -32,6 +32,8 @@ const config: ExpoConfig = {
   orientation: 'portrait',
   // metro.config.js resolves @shared/* itself (with the shared modules' packages).
   experiments: { tsconfigPaths: false },
+  // Face ID for biometric unlock (native-app-handover D5); the key stays out of backups.
+  plugins: [['expo-secure-store', { faceIDPermission: 'OpenTodo unlocks your encrypted tasks with Face ID.' }]],
   ios: {
     bundleIdentifier: ownId || 'app.open-todo.ios',
     supportsTablet: false,
@@ -47,6 +49,8 @@ const config: ExpoConfig = {
   // The Android shell's application id (mobile/android/app/build.gradle.kts).
   android: {
     package: ownId || 'app.opentodo',
+    // Biometric unlock of an encrypted account (native-app-handover D5): the system's prompt.
+    permissions: ['android.permission.USE_BIOMETRIC'],
     // Shares from other apps (native-app-handover): text and links, and images, one or several.
     intentFilters: [
       { action: 'SEND', category: ['DEFAULT'], data: [{ mimeType: 'text/*' }] },

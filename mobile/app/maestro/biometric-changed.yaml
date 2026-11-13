@@ -1,0 +1,20 @@
+# A new fingerprint (native-app-handover 2.1, "Biometric enrollment changes"): run.sh
+# enrolled a second one, so the system invalidated the key; the next start asks for the
+# passphrase, and biometric unlock can be turned on again (run.sh touches the sensor again).
+appId: ${APP_ID}
+---
+- stopApp
+- launchApp
+- extendedWaitUntil:
+    visible: Fingerprint or face did not unlock.*
+    timeout: 30000
+- assertVisible: Unlock with fingerprint or face next time
+- tapOn: Passphrase
+- inputText: ${PASSPHRASE}
+- tapOn:
+    text: Unlock
+    index: -1
+- extendedWaitUntil:
+    visible: Add task
+    timeout: 60000
+- runFlow: common/sign-out.yaml

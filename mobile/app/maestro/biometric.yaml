@@ -1,0 +1,22 @@
+# Biometric unlock (native-app-handover 2.1, "Biometric unlock"): after a passphrase
+# unlock with "next time" on, the key is kept behind the fingerprint; a cold start then
+# opens with the fingerprint and no passphrase. run.sh enrolls a fingerprint on the
+# emulator and touches its sensor while this flow runs; e2ee-unlock.yaml ran before.
+appId: ${APP_ID}
+---
+- runFlow: common/sign-in.yaml
+- tapOn: Passphrase
+- inputText: ${PASSPHRASE}
+- assertVisible: Unlock with fingerprint or face next time
+- tapOn:
+    text: Unlock
+    index: -1
+- extendedWaitUntil:
+    visible: Add task
+    timeout: 60000
+- stopApp
+- launchApp
+- extendedWaitUntil:
+    visible: Add task
+    timeout: 30000
+- assertNotVisible: Passphrase

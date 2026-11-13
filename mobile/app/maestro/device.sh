@@ -6,12 +6,13 @@
 #   share_link     shares a page's title and address to the app, as a browser's Share does
 #   open_picture   puts a picture in Download and opens the Files app (share-picture.yaml
 #                  shares it from there: a shell cannot grant another app a file)
+#   enroll_fingerprint, start_touching, stop_touching, clear_biometrics: biometric.yaml
 
 # The centre of the first node whose attributes match $1, from the screen's hierarchy.
 centre() {
   adb shell uiautomator dump /sdcard/ui.xml > /dev/null
   adb shell cat /sdcard/ui.xml | tr '>' '\n' | grep -m1 "$1" |
-    sed -E 's/.*bounds="\[([0-9]+),([0-9]+)\]\[([0-9]+),([0-9]+)\]".*/\1 \2 \3 \4/' | awk '{print int(($1+$3)/2), int(($2+$4)/2)}'
+    sed -E 's/.*bounds="\[([0-9]+),([0-9]+)\]\[([0-9]+),([0-9]+)\]".*/\1 \2 \3 \4/' | awk '{print int(($1+$3)/2), int(($2+$4)/2)}' || true
 }
 
 add_widget() {
@@ -67,4 +68,41 @@ open_picture() {
   adb push "$png" /sdcard/Download/receipt.png > /dev/null
   rm -f "$png"
   adb shell am start -a android.intent.action.VIEW -d content://com.android.externalstorage.documents/root/primary -t vnd.android.document/root > /dev/null
+}
+
+# Biometric unlock (biometric.yaml): a screen lock and a fingerprint on the emulator, and a
+# finger on its sensor while a flow runs, which answers any fingerprint prompt.
+enroll_fingerprint() {
+  local finger=$1 b c i
+  adb shell locksettings set-pin 1234 > /dev/null 2>&1 || true
+  adb shell am start -a android.settings.FINGERPRINT_ENROLL > /dev/null
+  sleep 3
+  adb shell input text 1234
+  adb shell input keyevent KEYCODE_ENTER
+  sleep 3
+  for b in MORE MORE MORE 'I AGREE' START; do
+    c=$(centre "text=\"$b\"")
+    if [ -n "$c" ]; then adb shell input tap $c; sleep 1.5; fi
+  done
+  for i in $(seq 12); do adb emu finger touch "$finger" > /dev/null; sleep 0.6; adb emu finger remove > /dev/null; sleep 0.6; done
+  sleep 2
+  c=$(centre 'text="DONE"')
+  [ -n "$c" ] || { echo "run.sh: fingerprint $finger was not enrolled" >&2; exit 1; }
+  adb shell input tap $c
+}
+
+toucher=
+start_touching() {
+  ( while :; do adb emu finger touch 1 > /dev/null; sleep 1; adb emu finger remove > /dev/null; sleep 1; done ) &
+  toucher=$!
+}
+
+stop_touching() {
+  [ -z "$toucher" ] || kill "$toucher" 2> /dev/null || true
+  toucher=
+}
+
+# Without the screen lock the fingerprints go too: the emulator as it was.
+clear_biometrics() {
+  adb shell locksettings clear --old 1234 > /dev/null 2>&1 || true
 }
