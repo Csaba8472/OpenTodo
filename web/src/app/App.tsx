@@ -37,7 +37,7 @@ import { PanelBoundary } from './PanelBoundary'
 import { UpdateBanner } from './UpdateBanner'
 import { DemoBanner } from './DemoBanner'
 import { useOauthAuthorizeReturn } from './oauthReturn'
-import { OAuthConsentHost } from './OAuthConsentHost'
+import { OAuthConsentHost, useConsentPending } from './OAuthConsentHost'
 import { clearDeviceData, useSignOut, wipeRevokedDevice } from './signOut'
 import { rememberWipeKey, REVOKED_NOTICE, wipeIfRevoked } from '../lib/revocation'
 
@@ -117,6 +117,7 @@ export function App() {
   // A signed-out visit to a client's /oauth/authorize comes back here with the
   // address to return to (mcp-oauth D5).
   useOauthAuthorizeReturn(phase.kind === 'ready')
+  const consentPending = useConsentPending()
 
   // A request refused with mfa_enrolment_required (policy changed while signed
   // in), or a click on the sync status, re-reads the status and shows the gate.
@@ -281,15 +282,17 @@ export function App() {
       const notice = route.view === 'share' ? t('Sign in to add the shared page to OpenTodo. It is kept on this screen until then.') : signInNotice
       return <AuthScreen status={phase.status} notice={notice} onAuthenticated={() => void refresh()} />
     }
+    // A consent is the whole page (account-access "Signed in on the web already"): the
+    // app's sign-in sheet shows only the confirmation, not the account behind it, and
+    // needs no key. The app opens here once it is answered without leaving the page.
+    if (consentPending) return <OAuthConsentHost />
     // The server lost the key record of an encrypted account (encryption-state-integrity).
-    // A consent needs no key: it is answered over these screens, or the app's sign-in
-    // sheet showed only the passphrase.
     if (enc.enabled && enc.recordMissing) {
-      return <><RecordMissingScreen unlocked={enc.unlocked} onLogout={() => void logout()} /><OAuthConsentHost /></>
+      return <RecordMissingScreen unlocked={enc.unlocked} onLogout={() => void logout()} />
     }
     // Encrypted account without the key on this device (OpenSpec e2ee, design D5).
     if (enc.enabled && !enc.unlocked) {
-      return <><UnlockScreen onLogout={() => void logout()} /><OAuthConsentHost /></>
+      return <UnlockScreen onLogout={() => void logout()} />
     }
     if (route.view === 'share') {
       return <ShareCapture />
@@ -315,7 +318,7 @@ export function App() {
         ) : (
           <Shell user={phase.user} onLogout={() => void logout()} />
         )}
-        <RelayConfirm /><OAuthConsentHost /><AppBadgeSync />
+        <RelayConfirm /><AppBadgeSync />
       </>
     )
   }
