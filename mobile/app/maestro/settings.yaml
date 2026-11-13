@@ -1,0 +1,15 @@
+# Settings (native-app-everyday 5.3; spec "Settings"): the server, the appearance (Dark,
+# then back to System), and sign-out, which ends on the server screen. That nothing of the
+# account stays on the phone is test/storage/account.test.ts and test/session.test.ts.
+appId: ${APP_ID}
+---
+- runFlow: common/sign-in.yaml
+- tapOn: Browse
+- scrollUntilVisible:
+    element: Settings
+- tapOn: Settings
+- assertVisible: localhost:18080
+- tapOn: Dark
+- tapOn: System
+- assertVisible: Open on the web
+- runFlow: common/sign-out.yaml

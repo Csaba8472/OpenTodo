@@ -22,6 +22,7 @@ import { t } from '../ui/i18n'
 import { Icon, type IconName } from '../ui/Icon'
 import { useTabBarInset } from '../ui/insets'
 import { useColors, type, type Colors } from '../ui/theme'
+import { around, TARGET } from '../ui/target'
 
 interface Detail {
   task: Task | null
@@ -165,11 +166,12 @@ export function TaskScreen({ route, navigation }: NativeStackScreenProps<StackPa
             accessibilityLabel={task.completed_at ? t('Reopen') : t('Complete')}
             accessibilityRole="checkbox"
             accessibilityState={{ checked: !!task.completed_at }}
-            hitSlop={12}
             onPress={() => { void complete(id, !task.completed_at) }}
-            style={[styles.circle, { borderColor: task.completed_at ? c.accent : c.muted }, task.completed_at ? { backgroundColor: c.accent } : null]}
+            style={styles.circleTarget}
           >
-            {!!task.completed_at && <Icon color={c.onAccent} name="check" size={14} />}
+            <View style={[styles.circle, { borderColor: task.completed_at ? c.accent : c.muted }, task.completed_at ? { backgroundColor: c.accent } : null]}>
+              {!!task.completed_at && <Icon color={c.onAccent} name="check" size={14} />}
+            </View>
           </Pressable>
           <TextInput
             accessibilityLabel={t('Title')}
@@ -220,11 +222,12 @@ export function TaskScreen({ route, navigation }: NativeStackScreenProps<StackPa
               accessibilityLabel={s.completed_at ? t('Reopen') : t('Complete')}
               accessibilityRole="checkbox"
               accessibilityState={{ checked: !!s.completed_at }}
-              hitSlop={10}
               onPress={() => { void complete(s.id, !s.completed_at) }}
-              style={[styles.small, { borderColor: s.completed_at ? c.accent : c.muted }, s.completed_at ? { backgroundColor: c.accent } : null]}
+              style={styles.smallTarget}
             >
-              {!!s.completed_at && <Icon color={c.onAccent} name="check" size={11} />}
+              <View style={[styles.small, { borderColor: s.completed_at ? c.accent : c.muted }, s.completed_at ? { backgroundColor: c.accent } : null]}>
+                {!!s.completed_at && <Icon color={c.onAccent} name="check" size={11} />}
+              </View>
             </Pressable>
             <Text style={[styles.fieldValue, { color: s.completed_at ? c.muted : c.text, textAlign: 'left' }]}>{s.title}</Text>
           </Pressable>
@@ -302,15 +305,17 @@ const styles = StyleSheet.create({
   page: { padding: 16, gap: 8, paddingBottom: 48 },
   gone: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   card: { borderRadius: 12, overflow: 'hidden' },
-  titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingHorizontal: 16, paddingTop: 14 },
-  circle: { width: 24, height: 24, borderRadius: 12, borderWidth: 1.5, marginTop: 4, alignItems: 'center', justifyContent: 'center' },
+  titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingHorizontal: 16, paddingTop: 6 },
+  circleTarget: { ...around(24), marginTop: 0 },
+  circle: { width: 24, height: 24, borderRadius: 12, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  smallTarget: around(20),
   small: { width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-  title: { flex: 1, fontSize: type.title, fontWeight: '600', padding: 0 },
+  title: { flex: 1, fontSize: type.title, fontWeight: '600', minHeight: TARGET, paddingHorizontal: 0, paddingVertical: 8 },
   notes: { fontSize: type.body, minHeight: 64, paddingHorizontal: 16, paddingBottom: 14, paddingTop: 8, textAlignVertical: 'top' },
   field: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 12, minHeight: 48, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'transparent' },
   fieldLabel: { fontSize: type.body },
   fieldValue: { flex: 1, fontSize: type.body, textAlign: 'right' },
-  inline: { flex: 1, fontSize: type.body, padding: 0 },
+  inline: { flex: 1, fontSize: type.body, padding: 0, minHeight: TARGET, marginVertical: -12 },
   heading: { fontSize: type.footnote, fontWeight: '600', paddingHorizontal: 16, paddingTop: 12, textTransform: 'uppercase' },
   comment: { gap: 4, paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth },
   delete: { alignItems: 'center', marginTop: 16, paddingVertical: 14 },

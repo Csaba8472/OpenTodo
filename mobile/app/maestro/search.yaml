@@ -1,0 +1,43 @@
+# Search on the phone (native-app-everyday 5.2; spec "Search"): with no connection, a word
+# of a task's title finds it from the phone's own copy, and a tap opens its detail.
+appId: ${APP_ID}
+onFlowComplete:
+  - runFlow:
+      when:
+        platform: Android
+      commands:
+        - setAirplaneMode: disabled
+---
+- runScript:
+    file: scripts/create-task.js
+    env:
+      TITLE: Book the dentist
+- runFlow: common/sign-in.yaml
+- extendedWaitUntil:
+    visible: Book the dentist
+    timeout: 20000
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - setAirplaneMode: enabled
+- tapOn: Search
+- tapOn:
+    text: Search tasks and notes
+    optional: true
+- inputText: dentist
+- extendedWaitUntil:
+    visible: Book the dentist
+    timeout: 5000
+- tapOn: Book the dentist
+- extendedWaitUntil:
+    visible: When
+    timeout: 5000
+- back
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - setAirplaneMode: disabled
+- tapOn: Today
+- runFlow: common/sign-out.yaml

@@ -65,6 +65,15 @@ The tab bar shows the Inbox count as a badge, and Today's count when the user ha
 - **Rows.** A row shows at most the title, the date or time, the project (outside its own project), and a single icon line for priority, recurrence, subtasks progress and notes. That is four properties, against the web's seven.
 - **Sync.** Pull to refresh runs a sync now, with the system refresh control.
 
+As measured (task 1.2): `@shopify/flash-list` 2.3.2 against `@legendapp/list` 3.7.0 (`recycleItems`, an estimated 56 pt row), the same task row, 2,000 tasks due today in Today, twelve flings down and twelve up (`adb shell input swipe`, 120 ms each), Android's `dumpsys gfxinfo` over the session, release builds on the Android 14 emulator (Apple M4, software GPU, so only the comparison counts, not the absolute frame times):
+
+| | Frames | Janky | 50th | 90th | 95th | 99th |
+|---|---|---|---|---|---|---|
+| FlashList | 346 | 24.3% | 36 ms | 48 ms | 57 ms | 85 ms |
+| Legend List | 338 | 28.1% | 38 ms | 53 ms | 61 ms | 69 ms |
+
+FlashList is ahead on janky frames and on every percentile but the 99th, so the lists use it. The harness ran on a developer machine, not in CI; the frame budget on a phone is the nightly `app-perf`'s to check.
+
 ### D4. Task detail: pushed, edited in place
 
 - **Opening a task.** Tapping a row pushes the detail onto the stack: an edge swipe goes back, and the title collapses into the bar.
@@ -112,6 +121,22 @@ When the account is encrypted, the app asks for the passphrase after sign-in. It
 - Maestro flows (capture, complete, swipe, schedule, detail edit, offline) run on the iOS simulator in `app-ios` and on an emulator in `app-android` nightly.
 - `app-ios` uploads screenshots of every screen in light and dark at the standard and largest text sizes. Reviewers read the artifact.
 - Pixel baselines are not used: simulator rendering noise would make them flaky, and the flows assert what matters.
+
+## As built
+
+Where the app differs from the decisions above, and why:
+
+- **Add button (D2).** On iPhone it is the navigation bar's **+** on every version; the tab bar's bottom accessory waits for `react-native-screens` to expose it. On Android the round button is drawn by the app above the native tab bar, which has no slot for one.
+- **Context menu (D3).** Long-press opens the task's menu as a form sheet (the same actions, no preview): a native menu with a preview around a recycled list row is not available to React Native yet.
+- **Reorder (D3).** In edit mode (Select), each row of a project has a handle: hold and drag it, or use TalkBack's or VoiceOver's Move up and Move down. Long-press stays the menu, so it is not also the drag. The write is the shared `moveTask`.
+- **Pickers (D5).** Priority is a native action sheet (iOS) or a list sheet (Android) with the four names; in the capture toolbar the priority button cycles. Reminders open the task on the web: the phone shows none of its own until `native-app-handover` adds notifications.
+- **Detail (D4).** Attachments open in the system browser, signed in by the app's token, instead of QuickLook.
+- **Accent (D6).** OpenTodo's accent on both platforms; the user's theme colour joins with the theme sync on the phone.
+- **Keyboard time (D2).** Measured from screen recordings, not by Maestro: the keyboard starts to appear 80 to 200 ms after the tap and finishes the system's slide-in at 300 to 360 ms (Android 14 emulator).
+- **Search (D1).** On Android the search field is always shown in the header: the collapsible header search hid it behind an icon.
+- **Saved views.** A query that asks for tracked time (`tracked`) is left to the web: the phone does not read time entries.
+- **Encrypted accounts (D7).** The platform port's `memoryOnlyKeys` keeps the shared `e2ee` from storing the key in the database, so a cold start asks again.
+- **Testing (D8, D9).** The fork has no `app-ios` or `app-android` job: the Maestro flows run with `mobile/app/maestro/run.sh` on the Android emulator (and the iPhone simulator), and `SCREENS=<dir>` saves every screen in light and dark at the standard and the largest text size and runs `a11y.mjs` over each screen's hierarchy (a name for every control, 48 dp targets) in place of the XCUITest audit and the Espresso checks.
 
 ## Data model
 

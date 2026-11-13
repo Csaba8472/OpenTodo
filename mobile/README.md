@@ -9,13 +9,15 @@ Thin apps around the OpenTodo web app (OpenSpec change `native-shells`). A shell
 
 ## The native app (`mobile/app`)
 
-The trial of a native app (`native-app-foundation`): React Native 0.88 with Expo SDK 58 (New Architecture, Hermes), iPhone only, under the current apps' ids (`app.open-todo.ios` on iOS, `app.opentodo` on Android) as version 2.0.0, on TestFlight first. For now it has the server screen (the address, its check: `GET /api/v1/health` must answer `"app_sign_in": true`, and sign-in through the system's authentication sheet, `src/session.ts`), its local database (SQLite, `src/storage`), sync with the shared engine and a live stream (`src/accountSync.ts`, `src/live.ts`) and a minimal Today (`src/TodayScreen.tsx`); the everyday screens follow (`native-app-everyday`).
+The trial of a native app (`native-app-foundation`): React Native 0.88 with Expo SDK 58 (New Architecture, Hermes), for iPhone and Android, under the current apps' ids (`app.open-todo.ios` on iOS, `app.opentodo` on Android) as version 2.0.0. It has the server screen (the address, its check: `GET /api/v1/health` must answer `"app_sign_in": true`, and sign-in through the system's authentication sheet, `src/session.ts`), its local database (SQLite, `src/storage`), sync with the shared engine and a live stream (`src/accountSync.ts`, `src/live.ts`) and the everyday screens (`native-app-everyday`, `src/screens`: the five tabs, capture, a task's detail, the pickers, Browse, Search, Settings and unlock; [The OpenTodo app](../docs/app.md)).
 
 ```sh
 make app                                              # Linux is enough: npm ci, type-check, lint, Jest with the shared vectors
 cd mobile/app && npx expo prebuild --platform ios     # writes ios/ from app.config.ts (git-ignored, never edited by hand)
 cd mobile/app && npx expo run:ios                     # on a Mac with Xcode: build and start on a simulator
 mobile/app/maestro/run.sh                             # the Maestro flows on the booted simulator, against a throwaway server (bin/opentodo)
+PLATFORM=android mobile/app/maestro/run.sh            # the same on the running Android emulator (an installed release build)
+PLATFORM=android SCREENS=/tmp/shots mobile/app/maestro/run.sh  # every screen, light and dark, standard and largest text, and the accessibility check
 ```
 
 `make app` runs `npm ci`, which removes the OpenSSL framework CocoaPods downloaded into `react-native-quick-crypto`: prebuild again before the next Xcode build. The flows need the app installed from an ad-hoc signed simulator build (`xcodebuild … CODE_SIGN_IDENTITY=-`, as `app-ios` builds it): the Keychain, which holds the sign-in tokens, refuses an unsigned app.

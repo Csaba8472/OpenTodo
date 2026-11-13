@@ -11,6 +11,7 @@ import type { StackParams } from '../nav/types'
 import { t } from '../ui/i18n'
 import { Markdown } from '../ui/Markdown'
 import { useColors, type } from '../ui/theme'
+import { TARGET } from '../ui/target'
 
 export function NoteScreen({ route, navigation }: NativeStackScreenProps<StackParams, 'Note'>) {
   const c = useColors()
@@ -36,7 +37,7 @@ export function NoteScreen({ route, navigation }: NativeStackScreenProps<StackPa
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <Pressable accessibilityRole="button" hitSlop={10} onPress={editing ? finish : () => setEditing(true)}>
+        <Pressable accessibilityRole="button" onPress={editing ? finish : () => setEditing(true)} style={{ minWidth: TARGET, minHeight: TARGET, alignItems: 'center', justifyContent: 'center' }}>
           <Text style={{ color: c.accent, fontSize: type.body, fontWeight: editing ? '600' : '400' }}>{editing ? t('Done') : t('Edit')}</Text>
         </Pressable>
       ),

@@ -9,6 +9,7 @@ import { t } from './i18n'
 import { Icon } from './Icon'
 import { useTabBarInset } from './insets'
 import { useColors } from './theme'
+import { TARGET } from './target'
 
 /** Sets the iOS bar button and returns the Android FAB (null on iOS) for the screen to draw. */
 export function useAddButton(context: CaptureContext): React.ReactNode {
@@ -22,7 +23,7 @@ export function useAddButton(context: CaptureContext): React.ReactNode {
     if (Platform.OS !== 'ios') return
     nav.setOptions({
       headerRight: () => (
-        <Pressable accessibilityLabel={t('Add task')} accessibilityRole="button" hitSlop={10} onPress={open}>
+        <Pressable accessibilityLabel={t('Add task')} accessibilityRole="button" onPress={open} style={{ minWidth: TARGET, minHeight: TARGET, alignItems: 'center', justifyContent: 'center' }}>
           <Icon color={c.accent} name="add" size={24} />
         </Pressable>
       ),

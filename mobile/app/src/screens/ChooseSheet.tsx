@@ -12,6 +12,7 @@ import type { RootParams } from '../nav/types'
 import { t } from '../ui/i18n'
 import { Icon } from '../ui/Icon'
 import { useColors, type } from '../ui/theme'
+import { TARGET } from '../ui/target'
 
 interface Choice { id: string; name: string; depth: number }
 
@@ -111,7 +112,7 @@ export function ChooseSheet({ route, navigation }: NativeStackScreenProps<RootPa
 
 const styles = StyleSheet.create({
   sheet: { flex: 1, paddingTop: 16 },
-  search: { borderRadius: 10, fontSize: type.body, marginHorizontal: 16, marginBottom: 6, paddingHorizontal: 14, paddingVertical: 10 },
+  search: { borderRadius: 10, fontSize: type.body, marginHorizontal: 16, marginBottom: 6, minHeight: TARGET, paddingHorizontal: 14, paddingVertical: 10 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 20, paddingVertical: 13, minHeight: 48 },
   name: { flex: 1, fontSize: type.body },
   done: { alignItems: 'center', borderRadius: 12, margin: 16, paddingVertical: 14 },

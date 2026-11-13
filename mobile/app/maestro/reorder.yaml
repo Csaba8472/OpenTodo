@@ -1,0 +1,45 @@
+# Reordering (native-app-everyday 2.3; spec "Reorder converges"): in a project, Select shows
+# a handle on each row; holding the last one and dragging it up two rows puts the task
+# first, on the server too. (Both devices agreeing after concurrent moves is
+# test/reorder.test.ts.)
+appId: ${APP_ID}
+---
+- runScript:
+    file: scripts/create-project.js
+    env:
+      NAME: Shelf
+- runScript:
+    file: scripts/create-task.js
+    env:
+      TITLE: First book
+      IN_PROJECT: 'yes'
+- runScript:
+    file: scripts/create-task.js
+    env:
+      TITLE: Second book
+      IN_PROJECT: 'yes'
+- runScript:
+    file: scripts/create-task.js
+    env:
+      TITLE: Third book
+      IN_PROJECT: 'yes'
+- runFlow: common/sign-in.yaml
+- tapOn: Browse
+- tapOn: Shelf
+- extendedWaitUntil:
+    visible: Third book
+    timeout: 20000
+- tapOn: Select
+# Slowly, so the handle's hold (120 ms) comes before the move.
+- swipe:
+    from:
+      text: Reorder
+      index: 2
+    direction: UP
+    duration: 6000
+- runScript:
+    file: scripts/project-order.js
+    env:
+      ORDER: Third book,First book,Second book
+- back
+- runFlow: common/sign-out.yaml

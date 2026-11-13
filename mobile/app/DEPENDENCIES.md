@@ -27,7 +27,6 @@ Every package in `package.json`, with the reason it is there (OpenSpec change `n
 - `react-native-reanimated`: the animation runtime the swipe actions run on.
 - `react-native-worklets`: required by `react-native-reanimated` 4 (its worklet runtime, a package of its own).
 - `@shopify/flash-list`: the recycled task lists (design D3); the list spike (everyday 1.2) chose it over `@legendapp/list`.
-- `@legendapp/list`: the list spike's other candidate (everyday 1.2), kept only while the spike's harness runs; removed with the spike.
 - `@expo/ui`: the platform's own controls where React Native has none: the date and time pickers (Material dialogs on Android, SwiftUI on iOS).
 - `expo-symbols`: SF Symbols on iOS and Material Symbols on Android (design D6); on Android its Material Symbols font (about 1 MB) and the tab icons drawn from it.
 - `expo-clipboard`: Copy link in a task's menu.

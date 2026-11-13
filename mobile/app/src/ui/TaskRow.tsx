@@ -6,14 +6,17 @@
 import { describeDue } from '@shared/dates'
 import { priorityName } from '@shared/priority'
 import type { Project, Task } from '@shared/types'
-import { memo, useRef } from 'react'
-import { Platform, Pressable, StyleSheet, Text, View, type AccessibilityActionEvent } from 'react-native'
+import * as Haptics from 'expo-haptics'
+import { memo, useRef, useState } from 'react'
+import { Animated, Platform, Pressable, StyleSheet, Text, View, type AccessibilityActionEvent } from 'react-native'
+import { GestureDetector, usePanGesture } from 'react-native-gesture-handler'
 import Swipeable, { SwipeDirection, type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable'
 import { t } from './i18n'
 import { Icon, type IconName } from './Icon'
 import { useColors, type, type Colors } from './theme'
+import { around } from './target'
 
-export type RowAction = 'complete' | 'schedule' | 'delete' | 'move'
+export type RowAction = 'complete' | 'schedule' | 'delete' | 'move' | 'up' | 'down'
 
 export interface TaskRowProps {
   task: Task
@@ -28,6 +31,8 @@ export interface TaskRowProps {
   hideToday?: boolean
   /** Edit mode: a selection circle instead of the checkbox, and no swipes. */
   selecting?: boolean
+  /** In edit mode of a list ordered by hand: a handle to drag the row to another place. */
+  onDrop?(task: Task, dy: number): void
   selected?: boolean
   onPress(task: Task): void
   onLongPress(task: Task): void
@@ -45,9 +50,39 @@ function Action({ icon, label, color, c, onPress }: { icon: IconName; label: str
   )
 }
 
+/**
+ * The reorder handle (design D3): hold and drag; the row follows the finger and lands where
+ * it is let go. Move up and Move down are its accessibility actions.
+ */
+function DragHandle({ c, onMove, onDrop, offset }: { c: Colors; onMove(dir: 'up' | 'down'): void; onDrop(dy: number): void; offset: Animated.Value }) {
+  const [active, setActive] = useState(false)
+  const pan = usePanGesture({
+    runOnJS: true,
+    activateAfterLongPress: 120,
+    onActivate: () => { setActive(true); void Haptics.selectionAsync() },
+    onUpdate: (e) => offset.setValue(e.translationY),
+    onDeactivate: (e) => { setActive(false); offset.setValue(0); onDrop(e.translationY) },
+  })
+  return (
+    <GestureDetector gesture={pan}>
+      <View
+        accessibilityActions={[{ name: 'up', label: t('Move up') }, { name: 'down', label: t('Move down') }]}
+        accessibilityLabel={t('Reorder')}
+        accessibilityRole="adjustable"
+        accessible
+        onAccessibilityAction={(e) => onMove(e.nativeEvent.actionName === 'up' ? 'up' : 'down')}
+        style={styles.handle}
+      >
+        <Icon color={active ? c.accent : c.muted} name="drag" />
+      </View>
+    </GestureDetector>
+  )
+}
+
 function TaskRowView(p: TaskRowProps) {
   const c = useColors()
   const swipe = useRef<SwipeableMethods>(null)
+  const offset = useRef(new Animated.Value(0)).current
   const { task } = p
   // Within the grace period, or a completed task's own row (the Logbook).
   const done = p.done || !!task.completed_at
@@ -90,16 +125,19 @@ function TaskRowView(p: TaskRowProps) {
       <Pressable
         accessibilityElementsHidden
         disabled={p.selecting}
-        hitSlop={12}
         importantForAccessibility="no-hide-descendants"
         onPress={() => p.onAction(task, 'complete')}
-        style={[
-          styles.circle,
-          { borderColor: p.selected || done ? c.accent : task.priority < 4 ? PRIORITY_TONE(c, task.priority) : c.muted },
-          (p.selected || done) && { backgroundColor: c.accent },
-        ]}
+        style={styles.target}
       >
-        {(p.selected || done) && <Icon color={c.onAccent} name="check" size={14} />}
+        <View
+          style={[
+            styles.circle,
+            { borderColor: p.selected || done ? c.accent : task.priority < 4 ? PRIORITY_TONE(c, task.priority) : c.muted },
+            (p.selected || done) && { backgroundColor: c.accent },
+          ]}
+        >
+          {(p.selected || done) && <Icon color={c.onAccent} name="check" size={14} />}
+        </View>
       </Pressable>
       <View style={styles.text}>
         <Text style={[styles.title, { color: done ? c.muted : c.text }, done && styles.struck]}>{task.title}</Text>
@@ -113,10 +151,13 @@ function TaskRowView(p: TaskRowProps) {
           </View>
         )}
       </View>
+      {p.selecting && p.onDrop && (
+        <DragHandle c={c} offset={offset} onDrop={(dy) => p.onDrop?.(task, dy)} onMove={(dir) => p.onAction(task, dir)} />
+      )}
     </Pressable>
   )
 
-  if (p.selecting) return body
+  if (p.selecting) return p.onDrop ? <Animated.View style={{ transform: [{ translateY: offset }], zIndex: 2 }}>{body}</Animated.View> : body
   return (
     <Swipeable
       ref={swipe}
@@ -151,7 +192,8 @@ export const TaskRow = memo(TaskRowView)
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'flex-start', gap: 14, paddingHorizontal: 20, paddingVertical: 12, minHeight: 48 },
-  circle: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, marginTop: 1, alignItems: 'center', justifyContent: 'center' },
+  target: { ...around(22), marginTop: -12 },
+  circle: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   text: { flex: 1, gap: 3 },
   title: { fontSize: type.body },
   struck: { textDecorationLine: 'line-through' },
@@ -162,4 +204,5 @@ const styles = StyleSheet.create({
   actions: { flexDirection: 'row' },
   action: { width: 84, alignItems: 'center', justifyContent: 'center', gap: 4 },
   actionLabel: { fontSize: type.caption, fontWeight: '600' },
+  handle: { alignSelf: 'center', paddingLeft: 8, paddingVertical: 4 },
 })

@@ -3,26 +3,21 @@
 // set as on the web.
 import { db } from '@shared/db'
 import { logicalToday } from '@shared/dates'
-import { runView } from '@shared/views'
-import type { Task } from '@shared/types'
 import type { NativeStackScreenProps } from '@react-navigation/native-stack'
 import { useRead } from '../data/useRead'
 import type { StackParams } from '../nav/types'
-import { visibleTasks } from '../storage/lists'
+import { savedViewSections } from '../data/views'
 import { useAddButton } from '../ui/AddButton'
 import { t } from '../ui/i18n'
 import { SelectionBar, useSelection } from '../ui/SelectionBar'
-import { TaskList, type ListSection } from '../ui/TaskList'
+import { TaskList } from '../ui/TaskList'
+import type { ListSection } from '../ui/listSection'
 import { ListScreen } from './ListScreen'
 import { TASK_STORES } from './TodayScreen'
 
 async function read(id: string, today: string): Promise<ListSection[] | { error: string }> {
   const view = await db.views.get(id)
-  if (!view) return []
-  const [{ list, projects }, labels, sections] = await Promise.all([visibleTasks(), db.labels.toArray(), db.sections.toArray()])
-  const r = runView(view, { today, labels, projects, tasks: list as Task[], sections })
-  if (!r.ok) return { error: r.error }
-  return r.groups.map((g) => ({ key: g.key || 'all', title: g.heading || undefined, tasks: g.tasks }))
+  return view ? savedViewSections(view, today) : []
 }
 
 export function ViewScreen({ route }: NativeStackScreenProps<StackParams, 'View'>) {

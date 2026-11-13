@@ -6,6 +6,7 @@
 # from an ad-hoc signed build (the Keychain refuses an unsigned one), or on the running
 # Android emulator (PLATFORM=android), whose localhost the server is forwarded to.
 #   [PLATFORM=android] mobile/app/maestro/run.sh [flow.yaml…]
+#   PLATFORM=android SCREENS=<dir> mobile/app/maestro/run.sh
 set -euo pipefail
 cd "$(dirname "$0")"
 root=../../..
@@ -21,6 +22,8 @@ case $platform in
     # A fresh emulator's Chrome opens its welcome screens in the sign-in tab; a phone's has none.
     adb shell 'echo "_ --disable-fre --no-default-browser-check --no-first-run" > /data/local/tmp/chrome-command-line'
     adb shell am set-debug-app --persistent com.android.chrome > /dev/null
+    # A clean Chrome: a web app built since the last run offered its update over the sign-in form.
+    adb shell pm clear com.android.chrome > /dev/null
     ;;
   *) echo "run.sh: PLATFORM is ios or android" >&2; exit 2 ;;
 esac
@@ -41,7 +44,27 @@ curl -fs -c "$data/cookies" -X POST "$server/api/v1/auth/register" -H 'Content-T
 token=$(curl -fs -b "$data/cookies" -X POST "$server/api/v1/tokens" -H 'Content-Type: application/json' -H "Origin: $server" \
   -d '{"name":"maestro"}' | sed -n 's/.*"secret":"\([^"]*\)".*/\1/p')
 
-flows=("$@")
-[ ${#flows[@]} -gt 0 ] || flows=(*.yaml)
-# --platform: a simulator and an emulator may run on the same machine.
-maestro test --platform "$platform" -e APP_ID="$app_id" -e SERVER="$server" -e EMAIL="$email" -e PASSWORD="$password" -e TOKEN="$token" "${flows[@]}" || { tail -50 "$log"; exit 1; }
+# e2ee-unlock.yaml runs last, once the others are done: it needs the account encrypted.
+flows=()
+encrypted=false
+for f in "${@:-*.yaml}"; do
+  for g in $f; do if [ "$(basename "$g")" = e2ee-unlock.yaml ]; then encrypted=true; else flows+=("$g"); fi; done
+done
+passphrase='correct horse battery staple'
+run() {
+  # --platform: a simulator and an emulator may run on the same machine.
+  maestro test --platform "$platform" -e APP_ID="$app_id" -e SERVER="$server" -e EMAIL="$email" -e PASSWORD="$password" \
+    -e TOKEN="$token" -e PASSPHRASE="$passphrase" "$@" || { tail -50 "$log"; exit 1; }
+}
+# SCREENS=<dir>: every screen's screenshots and accessibility check instead (screens.sh).
+if [ -n "${SCREENS:-}" ]; then
+  APP_ID=$app_id SERVER=$server EMAIL=$email PASSWORD=$password TOKEN=$token ./screens.sh || { tail -50 "$log"; exit 1; }
+  exit 0
+fi
+[ ${#flows[@]} -eq 0 ] || run "${flows[@]}"
+if $encrypted; then
+  (cd "$root" && go run ./mobile/app/maestro/keyrecord "$passphrase") > "$data/keys.json"
+  curl -fs -b "$data/cookies" -X PUT "$server/api/v1/encryption/keys" -H 'Content-Type: application/json' -H "Origin: $server" \
+    -d @"$data/keys.json" > /dev/null
+  run e2ee-unlock.yaml
+fi

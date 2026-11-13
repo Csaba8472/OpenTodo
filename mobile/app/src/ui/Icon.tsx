@@ -2,6 +2,7 @@
 // expo-symbols. One name per meaning, so a screen never names a platform's symbol.
 import { SymbolView } from 'expo-symbols'
 import type { ComponentProps } from 'react'
+import { Platform, useWindowDimensions } from 'react-native'
 
 type Pair = NonNullable<Exclude<ComponentProps<typeof SymbolView>['name'], string>>
 
@@ -40,6 +41,7 @@ const ICONS = {
   more: { ios: 'ellipsis.circle', android: 'more_vert' },
   select: { ios: 'checkmark.circle', android: 'checklist_rtl' },
   time: { ios: 'clock', android: 'schedule' },
+  drag: { ios: 'line.3.horizontal', android: 'drag_handle' },
 } satisfies Record<string, Pair>
 
 export type IconName = keyof typeof ICONS
@@ -49,5 +51,9 @@ export function iconPair(name: IconName): Pair {
 }
 
 export function Icon({ name, size = 22, color }: { name: IconName; size?: number; color: string }) {
-  return <SymbolView accessible={false} name={ICONS[name] as Pair} size={size} tintColor={color} />
+  // On Android a symbol is a font glyph, which the text size scales inside its fixed box:
+  // the glyph is drawn at the box's size, as Material's icons keep theirs.
+  const { fontScale } = useWindowDimensions()
+  const glyph = Platform.OS === 'android' ? size / fontScale : size
+  return <SymbolView accessible={false} name={ICONS[name] as Pair} size={glyph} style={{ width: size, height: size }} tintColor={color} />
 }

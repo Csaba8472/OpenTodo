@@ -1,6 +1,7 @@
-# Signs in through the system's authentication sheet (design D5) and waits for Today: the
-# address, the sheet, the password when the sheet has no session, the confirmation. Run
-# from the flows in the folder above with SERVER, EMAIL and PASSWORD.
+# Signs in through the system's authentication sheet (design D5) and waits for Today, or
+# Unlock on an encrypted account: the address, the sheet, the password when the sheet has
+# no session, the confirmation. Run from the flows in the folder above with SERVER, EMAIL
+# and PASSWORD.
 appId: ${APP_ID}
 ---
 # Stopped first, then cleared, then launched: on Android, clearing a running app made the
@@ -48,5 +49,5 @@ appId: ${APP_ID}
     text: Sign in
     index: -1
 - extendedWaitUntil:
-    visible: Today
+    visible: Today|Unlock
     timeout: 40000

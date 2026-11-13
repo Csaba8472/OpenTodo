@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { completeMany, moveMany, scheduleMany, trashMany } from '../data/actions'
 import { usePickers } from '../nav/pickers'
 import { useTabBarInset } from './insets'
+import { TARGET } from './target'
 import { t } from './i18n'
 import { Icon, type IconName } from './Icon'
 import { useColors, type } from './theme'
@@ -33,7 +34,7 @@ export function useSelection(): Selection {
   // end of the app bar (Material), the add button being the floating one.
   useLayoutEffect(() => {
     const button = () => (
-      <Pressable accessibilityLabel={selecting ? t('Done') : t('Select')} accessibilityRole="button" hitSlop={10} onPress={selecting ? done : () => setSelecting(true)}>
+      <Pressable accessibilityLabel={selecting ? t('Done') : t('Select')} accessibilityRole="button" onPress={selecting ? done : () => setSelecting(true)} style={styles.headerButton}>
         {Platform.OS === 'ios'
           ? <Text style={{ color: c.accent, fontSize: type.body }}>{selecting ? t('Done') : t('Select')}</Text>
           : <Icon color={selecting ? c.accent : c.text} name={selecting ? 'check' : 'select'} />}
@@ -83,6 +84,7 @@ export function SelectionBar({ selection }: { selection: Selection }) {
 
 const styles = StyleSheet.create({
   bar: { flexDirection: 'row', justifyContent: 'space-around', borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 8 },
+  headerButton: { minWidth: TARGET, minHeight: TARGET, alignItems: 'center', justifyContent: 'center' },
   tool: { alignItems: 'center', gap: 2, minWidth: 64, paddingVertical: 4 },
   toolLabel: { fontSize: type.caption },
 })

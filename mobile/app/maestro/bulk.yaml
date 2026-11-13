@@ -1,0 +1,34 @@
+# Edit mode (native-app-everyday 2.3; spec "Native list gestures"): Select turns the rows
+# into a multi-selection, and the toolbar completes the selected tasks in one batch.
+appId: ${APP_ID}
+---
+- runScript:
+    file: scripts/create-task.js
+    env:
+      TITLE: Sort the mail
+- runScript:
+    file: scripts/create-task.js
+    env:
+      TITLE: Empty the bins
+- runFlow: common/sign-in.yaml
+- extendedWaitUntil:
+    visible: Empty the bins
+    timeout: 20000
+- tapOn: Select
+- tapOn: Sort the mail
+- tapOn: Empty the bins
+- tapOn:
+    text: Complete
+    index: -1
+- extendedWaitUntil:
+    notVisible: Empty the bins
+    timeout: 8000
+- runScript:
+    file: scripts/find-task.js
+    env:
+      TITLE: Sort the mail
+- runScript:
+    file: scripts/check-task.js
+    env:
+      CHECK: t.completed_at !== null
+- runFlow: common/sign-out.yaml

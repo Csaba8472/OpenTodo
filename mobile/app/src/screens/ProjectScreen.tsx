@@ -28,7 +28,7 @@ export function ProjectScreen({ route }: NativeStackScreenProps<StackParams, 'Pr
   const selection = useSelection()
   return (
     <ListScreen add={selection.selecting ? null : add} bar={<SelectionBar selection={selection} />}>
-      <TaskList empty={t('No tasks yet')} onToggle={selection.toggle} projectId={id} sections={sections} selected={selection.selected} selecting={selection.selecting} today={logicalToday()} />
+      <TaskList empty={t('No tasks yet')} onToggle={selection.toggle} projectId={id} reorder sections={sections} selected={selection.selected} selecting={selection.selecting} today={logicalToday()} />
     </ListScreen>
   )
 }

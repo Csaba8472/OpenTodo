@@ -1,0 +1,23 @@
+# The date sheet (native-app-everyday 4.2; spec "Pickers"): from a task's detail, a typed
+# rule and a typed date ("next fri 3pm"), both read by the shared parsers, are set together;
+# the server has the task due on a Friday at 15:00, repeating every 2 weeks.
+appId: ${APP_ID}
+---
+- runScript:
+    file: scripts/create-task.js
+    env:
+      TITLE: Water the garden
+- runFlow: common/sign-in.yaml
+- tapOn: Water the garden
+- tapOn: When
+- tapOn: Custom repeat
+- inputText: every 2 weeks
+- tapOn: Date
+- inputText: next fri 3pm
+- tapOn: Set
+- runScript:
+    file: scripts/check-task.js
+    env:
+      CHECK: "!!t.due && t.due.time === '15:00' && new Date(t.due.date + 'T12:00').getDay() === 5 && /2 weeks/.test(t.recurrence || '')"
+- back
+- runFlow: common/sign-out.yaml

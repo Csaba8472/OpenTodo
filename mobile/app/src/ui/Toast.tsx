@@ -7,6 +7,7 @@ import { AccessibilityInfo, Animated, Pressable, StyleSheet, Text, View } from '
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { t } from './i18n'
 import { useColors, type } from './theme'
+import { TARGET } from './target'
 
 export const TOAST_MS = 5000
 
@@ -54,7 +55,7 @@ export function ToastHost({ bottom }: { bottom: number }) {
       <View accessibilityLiveRegion="polite" style={[styles.toast, { backgroundColor: c.text }]}>
         <Text numberOfLines={2} style={[styles.label, { color: c.bg }]}>{toast.label}</Text>
         {toast.undo && (
-          <Pressable accessibilityRole="button" hitSlop={10} onPress={() => { void undo() }}>
+          <Pressable accessibilityRole="button" onPress={() => { void undo() }} style={{ minHeight: TARGET, justifyContent: 'center', marginVertical: -12 }}>
             <Text style={[styles.undo, { color: c.inverseAccent }]}>{t('Undo')}</Text>
           </Pressable>
         )}

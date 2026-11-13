@@ -282,12 +282,14 @@ export function App() {
       return <AuthScreen status={phase.status} notice={notice} onAuthenticated={() => void refresh()} />
     }
     // The server lost the key record of an encrypted account (encryption-state-integrity).
+    // A consent needs no key: it is answered over these screens, or the app's sign-in
+    // sheet showed only the passphrase.
     if (enc.enabled && enc.recordMissing) {
-      return <RecordMissingScreen unlocked={enc.unlocked} onLogout={() => void logout()} />
+      return <><RecordMissingScreen unlocked={enc.unlocked} onLogout={() => void logout()} /><OAuthConsentHost /></>
     }
     // Encrypted account without the key on this device (OpenSpec e2ee, design D5).
     if (enc.enabled && !enc.unlocked) {
-      return <UnlockScreen onLogout={() => void logout()} />
+      return <><UnlockScreen onLogout={() => void logout()} /><OAuthConsentHost /></>
     }
     if (route.view === 'share') {
       return <ShareCapture />

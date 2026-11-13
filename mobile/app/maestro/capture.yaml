@@ -21,7 +21,7 @@ appId: ${APP_ID}
     timeout: 5000
 - inputText: Water the plants
 - pressKey: Enter
-- back
+- tapOn: Close
 - runScript:
     file: scripts/find-task.js
     env:

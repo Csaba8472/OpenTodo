@@ -70,6 +70,7 @@
     "web/src/lib/markdown.ts",
     "web/src/lib/method/rules.ts",
     "web/src/lib/moduleState.ts",
+    "web/src/lib/move.ts",
     "web/src/lib/nlp/attributes.ts",
     "web/src/lib/nlp/dates.ts",
     "web/src/lib/nlp/index.ts",

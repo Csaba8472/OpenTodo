@@ -1,0 +1,49 @@
+# Offline (native-app-everyday 2.4; spec "Swipe to complete offline", "Server unreachable"):
+# in airplane mode a task is completed with the swipe, the list says it is offline, and
+# the completion reaches the server when the network returns. Android only: the iOS
+# simulator has no airplane mode.
+appId: ${APP_ID}
+# Back online whatever happened, or the flows after this one find no server.
+onFlowComplete:
+  - runFlow:
+      when:
+        platform: Android
+      commands:
+        - setAirplaneMode: disabled
+---
+- runScript:
+    file: scripts/create-task.js
+    env:
+      TITLE: File the receipts
+- runFlow: common/sign-in.yaml
+- extendedWaitUntil:
+    visible: File the receipts
+    timeout: 20000
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - setAirplaneMode: enabled
+      # Going offline can move the list as the swipe starts: swipe again while the row stays.
+      - repeat:
+          times: 3
+          while:
+            visible: File the receipts
+          commands:
+            - swipe:
+                from:
+                  text: File the receipts
+                direction: RIGHT
+            - extendedWaitUntil:
+                notVisible: File the receipts
+                timeout: 5000
+                optional: true
+      - assertNotVisible: File the receipts
+      - swipe:
+          direction: DOWN
+      - extendedWaitUntil:
+          visible: Offline.*
+          timeout: 15000
+      - setAirplaneMode: disabled
+      - runScript: scripts/completed-on-server.js
+- runFlow: common/sign-out.yaml

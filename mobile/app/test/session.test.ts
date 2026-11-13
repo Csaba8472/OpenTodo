@@ -1,6 +1,6 @@
 // App sign-in's token logic (OpenSpec change native-app-foundation, design D5; specs
 // account-access "App sign-in through the system browser" and "App sessions").
-import { codeFrom, REDIRECT, Session, SignInError, signInRequest, type Vault } from '../src/session'
+import { browserErrors, codeFrom, REDIRECT, Session, SignInError, signInRequest, type Vault } from '../src/session'
 
 const SERVER = 'https://todo.example.com'
 
@@ -235,5 +235,14 @@ describe('Session', () => {
     server.state.refreshRefused = true
     await session.retrySignOut()
     expect(vault.values.size).toBe(0)
+  })
+
+  it("reports Expo's network failure as a browser does, and passes an abort on", async () => {
+    // Expo's global fetch throws a plain Error ("fetch failed: …") when nothing answers.
+    const failing = browserErrors(async () => { throw new Error('fetch failed: java.io.IOException: unexpected end of stream') })
+    await expect(failing('/x')).rejects.toBeInstanceOf(TypeError)
+    const aborted = new Error('aborted')
+    aborted.name = 'AbortError'
+    await expect(browserErrors(async () => { throw aborted })('/x')).rejects.toBe(aborted)
   })
 })

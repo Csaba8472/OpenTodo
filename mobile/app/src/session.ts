@@ -41,6 +41,22 @@ export class SignInError extends Error {
   }
 }
 
+/**
+ * Expo's fetch, installed as the global one, reports a request that got no answer as a
+ * plain Error ("fetch failed: …"); a browser throws a TypeError, which the shared code
+ * and this file read as "offline". This makes the phone's transports say it the same way.
+ */
+export function browserErrors(transport: typeof fetch): typeof fetch {
+  return async (input, init) => {
+    try {
+      return await transport(input, init)
+    } catch (err) {
+      if (err instanceof TypeError || (err instanceof Error && err.name === 'AbortError')) throw err
+      throw new TypeError(err instanceof Error ? err.message : String(err), { cause: err })
+    }
+  }
+}
+
 function base64url(bytes: Uint8Array): string {
   let s = ''
   for (const b of bytes) s += String.fromCharCode(b)
@@ -133,7 +149,7 @@ export class Session {
 
   constructor(opts: SessionOptions) {
     this.vault = opts.vault
-    this.raw = opts.fetch
+    this.raw = browserErrors(opts.fetch)
     this.now = opts.now ?? Date.now
   }
 
@@ -174,7 +190,8 @@ export class Session {
 
   /** The same, over another transport: the live stream's, which can read a body as it arrives. */
   fetchWith(transport: typeof fetch): typeof fetch {
-    return (input, init) => this.send(transport, input, init)
+    const t = browserErrors(transport)
+    return (input, init) => this.send(t, input, init)
   }
 
   private async send(transport: typeof fetch, input: RequestInfo | URL, init?: RequestInit): Promise<Response> {

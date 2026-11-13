@@ -1,0 +1,49 @@
+# Unlock an encrypted account (native-app-everyday 5.4; spec "Encrypted account"): after
+# sign-in the app asks for the passphrase; a wrong one says so; the right one opens Today,
+# and a task captured then reaches the server only as ciphertext. The key is kept in memory
+# only, so a cold start asks again. run.sh encrypts the account (keyrecord/) before this flow.
+appId: ${APP_ID}
+---
+- runFlow: common/sign-in.yaml
+- assertVisible: Passphrase
+- tapOn: Passphrase
+- inputText: not the passphrase at all
+- tapOn:
+    text: Unlock
+    index: -1
+- extendedWaitUntil:
+    visible: That passphrase is not right.
+    timeout: 30000
+- tapOn: Passphrase
+- eraseText: 40
+- inputText: ${PASSPHRASE}
+- tapOn:
+    text: Unlock
+    index: -1
+- extendedWaitUntil:
+    visible: Add task
+    timeout: 60000
+- tapOn: Add task
+- inputText: Secret plan
+- tapOn: Add
+- tapOn: Close
+- runScript:
+    file: scripts/encrypted-task.js
+    env:
+      TITLE: Secret plan
+- assertVisible: Secret plan
+# A cold start: the key went with the process.
+- stopApp
+- launchApp
+- extendedWaitUntil:
+    visible: Passphrase
+    timeout: 20000
+- tapOn: Passphrase
+- inputText: ${PASSPHRASE}
+- tapOn:
+    text: Unlock
+    index: -1
+- extendedWaitUntil:
+    visible: Secret plan
+    timeout: 60000
+- runFlow: common/sign-out.yaml

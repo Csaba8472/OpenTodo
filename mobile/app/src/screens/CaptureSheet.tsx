@@ -17,13 +17,14 @@ import type { Due, Label, Priority, Project } from '@shared/types'
 import type { NativeStackScreenProps } from '@react-navigation/native-stack'
 import * as Haptics from 'expo-haptics'
 import { useEffect, useMemo, useRef, useState, type ComponentRef } from 'react'
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { usePickers } from '../nav/pickers'
 import type { CaptureContext, RootParams } from '../nav/types'
 import { t } from '../ui/i18n'
 import { Icon, type IconName } from '../ui/Icon'
 import { useColors, type, type Colors } from '../ui/theme'
+import { around, TARGET } from '../ui/target'
 
 const CHIP_ICON: Partial<Record<Chip['kind'], IconName>> = { due: 'schedule', deadline: 'deadline', project: 'project', label: 'label', priority: 'priority', recurrence: 'repeat', reminder: 'reminder', estimate: 'time' }
 
@@ -61,10 +62,12 @@ function chipLabel(ch: Chip, projects: ReadonlyMap<string, Project>): string {
 
 function ChipView({ chip, label, c, onPress }: { chip: Chip; label: string; c: Colors; onPress(): void }) {
   return (
-    <Pressable accessibilityHint={t('Removes it from the task')} accessibilityLabel={label} accessibilityRole="button" onPress={onPress} style={[styles.chip, { backgroundColor: c.chip }]}>
-      {CHIP_ICON[chip.kind] && <Icon color={c.accent} name={CHIP_ICON[chip.kind]!} size={14} />}
-      <Text style={[styles.chipText, { color: c.text }]}>{label}</Text>
-      <Icon color={c.muted} name="close" size={12} />
+    <Pressable accessibilityHint={t('Removes it from the task')} accessibilityLabel={label} accessibilityRole="button" onPress={onPress} style={styles.chipTarget}>
+      <View style={[styles.chip, { backgroundColor: c.chip }]}>
+        {CHIP_ICON[chip.kind] && <Icon color={c.accent} name={CHIP_ICON[chip.kind]!} size={14} />}
+        <Text style={[styles.chipText, { color: c.text }]}>{label}</Text>
+        <Icon color={c.muted} name="close" size={12} />
+      </View>
     </Pressable>
   )
 }
@@ -117,10 +120,20 @@ export function CaptureSheet({ route, navigation }: NativeStackScreenProps<RootP
   }
 
   const priorities: Priority[] = [1, 2, 3, 4]
+  // A picker opens with the keyboard down: on Android a sheet opened over the keyboard
+  // stays at full height, under the status bar, once the keyboard goes. It comes back after.
+  const picking = async <T,>(open: () => Promise<T>): Promise<T> => {
+    Keyboard.dismiss()
+    try {
+      return await open()
+    } finally {
+      field.current?.focus()
+    }
+  }
   const tools: { icon: IconName; label: string; on: boolean; run(): Promise<void> }[] = [
-    { icon: 'schedule', label: t('Date'), on: 'due' in picked, run: async () => { const due = await pickers.when(picked.due ?? null); if (due !== undefined) setPicked((p) => ({ ...p, due })) } },
-    { icon: 'project', label: t('Project'), on: 'project_id' in picked, run: async () => { const id = await pickers.project(picked.project_id ?? null); if (id !== undefined) setPicked((p) => ({ ...p, project_id: id })) } },
-    { icon: 'label', label: t('Labels'), on: !!picked.labels?.length, run: async () => { const ids = await pickers.labels(picked.labels ?? []); if (ids) setPicked((p) => ({ ...p, labels: ids })) } },
+    { icon: 'schedule', label: t('Date'), on: 'due' in picked, run: async () => { const due = await picking(() => pickers.when(picked.due ?? null)); if (due !== undefined) setPicked((p) => ({ ...p, due })) } },
+    { icon: 'project', label: t('Project'), on: 'project_id' in picked, run: async () => { const id = await picking(() => pickers.project(picked.project_id ?? null)); if (id !== undefined) setPicked((p) => ({ ...p, project_id: id })) } },
+    { icon: 'label', label: t('Labels'), on: !!picked.labels?.length, run: async () => { const ids = await picking(() => pickers.labels(picked.labels ?? [])); if (ids) setPicked((p) => ({ ...p, labels: ids })) } },
     { icon: 'priority', label: picked.priority ? priorityName(picked.priority) : t('Priority'), on: !!picked.priority, run: async () => { setPicked((p) => ({ ...p, priority: priorities[((p.priority ?? 4) % 4)] })) } },
   ]
 
@@ -131,6 +144,8 @@ export function CaptureSheet({ route, navigation }: NativeStackScreenProps<RootP
         accessibilityLabel={t('Add a task')}
         autoFocus
         blurOnSubmit={false}
+        // Wraps at large text sizes; Return still adds (submitBehavior).
+        multiline
         onChangeText={onChange}
         onSubmitEditing={() => { void add() }}
         placeholder={t('Add a task…')}
@@ -162,7 +177,7 @@ export function CaptureSheet({ route, navigation }: NativeStackScreenProps<RootP
         <Pressable accessibilityRole="button" disabled={!line.trim()} onPress={() => { void add() }} style={[styles.addButton, { backgroundColor: line.trim() ? c.accent : c.field }]}>
           <Text style={{ color: line.trim() ? c.onAccent : c.muted, fontSize: type.callout, fontWeight: '600' }}>{t('Add')}</Text>
         </Pressable>
-        <Pressable accessibilityLabel={t('Close')} accessibilityRole="button" hitSlop={10} onPress={() => navigation.goBack()}>
+        <Pressable accessibilityLabel={t('Close')} accessibilityRole="button" onPress={() => navigation.goBack()} style={around(22)}>
           <Icon color={c.muted} name="close" />
         </Pressable>
       </View>
@@ -176,11 +191,12 @@ const styles = StyleSheet.create({
   // A strip as tall as its chips: a horizontal scroll view fills the column otherwise.
   strip: { flexGrow: 0 },
   chips: { gap: 8, alignItems: 'center' },
+  chipTarget: { minHeight: TARGET, justifyContent: 'center' },
   chip: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 16, paddingHorizontal: 10, paddingVertical: 6 },
   chipText: { fontSize: type.subhead },
   tools: { flexDirection: 'row', gap: 4 },
-  tool: { width: 44, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  tool: { width: TARGET, height: TARGET, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   footer: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   added: { flex: 1, fontSize: type.subhead },
-  addButton: { borderRadius: 18, paddingHorizontal: 18, paddingVertical: 8 },
+  addButton: { borderRadius: TARGET / 2, paddingHorizontal: 20, minHeight: TARGET, justifyContent: 'center' },
 })

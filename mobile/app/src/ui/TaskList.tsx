@@ -7,7 +7,9 @@ import type { Task } from '@shared/types'
 import { FlashList } from '@shopify/flash-list'
 import { useNavigation, type NavigationProp } from '@react-navigation/native'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import * as Haptics from 'expo-haptics'
 import { LayoutAnimation, Pressable, StyleSheet, Text, View } from 'react-native'
+import { moveTask, moveTaskBy } from '@shared/move'
 import { complete, move, schedule, trash } from '../data/actions'
 import { useLookups } from '../data/lookups'
 import { usePickers } from '../nav/pickers'
@@ -17,12 +19,8 @@ import { SyncLine } from './SyncLine'
 import { TaskRow, type RowAction } from './TaskRow'
 import { useColors, type } from './theme'
 
-export interface ListSection {
-  key: string
-  title?: string
-  tone?: 'danger'
-  tasks: Task[]
-}
+export type { ListSection } from './listSection'
+import type { ListSection } from './listSection'
 
 type Item = { kind: 'header'; key: string; title: string; tone?: 'danger' } | { kind: 'task'; key: string; task: Task; done: boolean }
 
@@ -39,6 +37,8 @@ export interface TaskListProps {
   empty: string
   header?: ReactNode
   selecting?: boolean
+  /** A list ordered by hand (a project): in edit mode its rows can be dragged to another place. */
+  reorder?: boolean
   selected?: ReadonlySet<string>
   onToggle?(id: string): void
 }
@@ -90,11 +90,25 @@ export function TaskList(p: TaskListProps) {
     } else if (action === 'schedule') {
       const due = await pickers.when(task.due, task.title)
       if (due !== undefined) await schedule(task.id, due)
+    } else if (action === 'up' || action === 'down') {
+      await moveTaskBy(task.id, action === 'up' ? -1 : 1)
     } else if (action === 'move') {
       const projectId = await pickers.project(task.project_id)
       if (projectId !== undefined) await move(task.id, projectId)
     }
   }, [p.sections, pickers, forget])
+
+  // The row lands as many places away as it was dragged rows, inside its section.
+  const rowHeight = useRef(56)
+  const onDrop = useCallback((task: Task, dy: number) => {
+    const section = p.sections?.find((s) => s.tasks.some((t) => t.id === task.id))
+    if (!section) return
+    const from = section.tasks.findIndex((t) => t.id === task.id)
+    const to = Math.max(0, Math.min(section.tasks.length - 1, from + Math.round(dy / rowHeight.current)))
+    if (to === from) return
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+    void moveTask(task.id, { parent_id: task.parent_id ?? null, section_id: section.key === 'none' ? null : section.key, at: to })
+  }, [p.sections])
 
   const onPress = useCallback((task: Task) => {
     if (p.selecting) p.onToggle?.(task.id)
@@ -128,6 +142,7 @@ export function TaskList(p: TaskListProps) {
             done={item.done}
             hideToday={p.hideToday}
             inbox={p.inbox}
+            onDrop={p.reorder ? onDrop : undefined}
             onAction={(task, a) => { void onAction(task, a) }}
             onLongPress={onLongPress}
             onPress={onPress}

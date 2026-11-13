@@ -19,6 +19,7 @@ import type { RootParams } from '../nav/types'
 import { t } from '../ui/i18n'
 import { Icon, type IconName } from '../ui/Icon'
 import { useColors, type, type Colors } from '../ui/theme'
+import { TARGET } from '../ui/target'
 
 export interface WhenAnswer { due: Due | null; recurrence?: string | null }
 
@@ -116,6 +117,7 @@ export function WhenSheet({ route, navigation }: NativeStackScreenProps<RootPara
           <Switch
             accessibilityLabel={t('Time')}
             onValueChange={(on) => { if (on) setDialog('time'); else if (due) setDue({ date: due.date }) }}
+            style={Platform.OS === 'android' ? { height: TARGET, minWidth: TARGET } : undefined}
             thumbColor={Platform.OS === 'android' ? (due?.time ? c.accent : undefined) : undefined}
             trackColor={{ true: c.chip }}
             value={!!due?.time}
@@ -127,8 +129,10 @@ export function WhenSheet({ route, navigation }: NativeStackScreenProps<RootPara
         <Text style={[styles.heading, { color: c.muted }]}>{t('Repeat')}</Text>
         <ScrollView contentContainerStyle={styles.presets} horizontal keyboardShouldPersistTaps="handled" showsHorizontalScrollIndicator={false} style={styles.strip}>
           {[null, ...RULE_SUGGESTIONS.slice(0, 7)].map((r) => (
-            <Pressable accessibilityRole="button" accessibilityState={{ selected: repeat === r }} key={r ?? 'none'} onPress={() => setRepeat(r)} style={[styles.preset, { backgroundColor: repeat === r ? c.chip : c.field }]}>
-              <Text style={{ color: repeat === r ? c.accent : c.text, fontSize: type.subhead }}>{r ?? t('Does not repeat')}</Text>
+            <Pressable accessibilityRole="button" accessibilityState={{ selected: repeat === r }} key={r ?? 'none'} onPress={() => setRepeat(r)} style={styles.presetTarget}>
+              <View style={[styles.preset, { backgroundColor: repeat === r ? c.chip : c.field }]}>
+                <Text style={{ color: repeat === r ? c.accent : c.text, fontSize: type.subhead }}>{r ?? t('Does not repeat')}</Text>
+              </View>
             </Pressable>
           ))}
         </ScrollView>
@@ -177,7 +181,7 @@ export function WhenSheet({ route, navigation }: NativeStackScreenProps<RootPara
 
 const styles = StyleSheet.create({
   title: { fontSize: type.subhead, paddingHorizontal: 20, paddingTop: 20 },
-  typed: { borderRadius: 10, fontSize: type.body, marginHorizontal: 16, marginVertical: 10, paddingHorizontal: 14, paddingVertical: 10 },
+  typed: { borderRadius: 10, fontSize: type.body, marginHorizontal: 16, marginVertical: 10, minHeight: TARGET, paddingHorizontal: 14, paddingVertical: 10 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 20, paddingVertical: 13, minHeight: 48 },
   rowLabel: { flex: 1, fontSize: type.body },
   rowDetail: { fontSize: type.subhead },
@@ -185,6 +189,7 @@ const styles = StyleSheet.create({
   heading: { fontSize: type.footnote, fontWeight: '600', paddingHorizontal: 20, paddingVertical: 6, textTransform: 'uppercase' },
   strip: { flexGrow: 0 },
   presets: { gap: 8, paddingHorizontal: 16 },
+  presetTarget: { minHeight: TARGET, justifyContent: 'center' },
   preset: { borderRadius: 16, paddingHorizontal: 12, paddingVertical: 7 },
   error: { fontSize: type.footnote, paddingHorizontal: 20 },
   done: { alignItems: 'center', borderRadius: 12, marginHorizontal: 16, marginTop: 16, paddingVertical: 14 },
