@@ -1,0 +1,10 @@
+{
+  "platforms": ["android", "apple"],
+  "android": {
+    "modules": ["app.opentodo.container.SharedContainerModule"]
+  },
+  "apple": {
+    "modules": ["SharedContainerModule"],
+    "appDelegateSubscribers": ["SharedContainerAppDelegate"]
+  }
+}

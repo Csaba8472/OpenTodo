@@ -1,0 +1,28 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <application>
+        <receiver android:name="app.opentodo.container.AlarmReceiver" android:exported="false" />
+        <receiver android:name="app.opentodo.container.NotificationActionReceiver" android:exported="false" />
+        <receiver android:name="app.opentodo.container.BootReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
+            </intent-filter>
+        </receiver>
+        <receiver android:name="app.opentodo.container.TodayWidget" android:exported="false" android:label="@string/ot_widget_today">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/ot_widget_today" />
+        </receiver>
+        <receiver android:name="app.opentodo.container.QuickAddWidget" android:exported="false" android:label="@string/ot_widget_quick_add">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/ot_widget_quick_add" />
+        </receiver>
+    </application>
+</manifest>

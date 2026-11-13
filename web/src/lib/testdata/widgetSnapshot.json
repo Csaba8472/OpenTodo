@@ -1,0 +1,21 @@
+{
+  "$comment": "The widget snapshot (deviceSnapshot.ts shellWidget, native-app-handover 1.2): the Today list the Swift and Kotlin widgets read from the shared container. The web's shellPublish, the native app and the widgets' parsers are checked against it.",
+  "today": "2026-11-13",
+  "now": 1794556800000,
+  "tasks": [
+    { "id": "a", "title": "Water the plants", "due": { "date": "2026-11-13", "time": "09:30" }, "priority": 1 },
+    { "id": "b", "title": "Pay the rent", "due": { "date": "2026-11-11" }, "priority": 4 },
+    { "id": "c", "title": "Done already", "due": { "date": "2026-11-13" }, "priority": 4, "completed_at": 1794550000000 },
+    { "id": "d", "title": "Next week", "due": { "date": "2026-11-20" }, "priority": 4 }
+  ],
+  "snapshot": {
+    "updatedAt": 1794556800000,
+    "locked": false,
+    "count": 2,
+    "overdue": 1,
+    "tasks": [
+      { "id": "b", "title": "Pay the rent", "priority": 4, "overdue": true },
+      { "id": "a", "title": "Water the plants", "time": "09:30", "priority": 1, "overdue": false }
+    ]
+  }
+}

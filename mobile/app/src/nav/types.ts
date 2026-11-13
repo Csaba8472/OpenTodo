@@ -36,7 +36,7 @@ export type TabParams = {
 
 export type RootParams = {
   Tabs: NavigatorScreenParams<TabParams>
-  Capture: { context: CaptureContext }
+  Capture: { context: CaptureContext } | undefined
   When: { request: string; due: Due | null; title?: string }
   Choose: { request: string; kind: 'project' | 'labels'; selected: string[] }
   TaskMenu: { id: string; inbox?: boolean }

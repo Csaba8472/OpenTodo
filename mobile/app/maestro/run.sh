@@ -13,15 +13,18 @@ root=../../..
 port=${PORT:-18080}
 platform=${PLATFORM:-ios}
 case $platform in
-  ios) app_id=app.open-todo.ios ;;
+  ios) app_id=${APP_ID:-app.open-todo.ios} ;;
   android)
-    app_id=app.opentodo
+    # APP_ID: a build with an id of its own (OPENTODO_APP_ID, app.config.ts).
+    app_id=${APP_ID:-app.opentodo}
     # A restarted adb server sees the emulator offline for a moment.
     adb wait-for-device
     adb reverse "tcp:$port" "tcp:$port" > /dev/null
     # A fresh emulator's Chrome opens its welcome screens in the sign-in tab; a phone's has none.
     adb shell 'echo "_ --disable-fre --no-default-browser-check --no-first-run" > /data/local/tmp/chrome-command-line'
     adb shell am set-debug-app --persistent com.android.chrome > /dev/null
+    # Reminders fire on time (reminder.yaml): exact alarms are off by default from Android 14.
+    adb shell appops set "$app_id" SCHEDULE_EXACT_ALARM allow 2> /dev/null || true
     # A clean Chrome: a web app built since the last run offered its update over the sign-in form.
     adb shell pm clear com.android.chrome > /dev/null
     ;;
@@ -45,10 +48,22 @@ token=$(curl -fs -b "$data/cookies" -X POST "$server/api/v1/tokens" -H 'Content-
   -d '{"name":"maestro"}' | sed -n 's/.*"secret":"\([^"]*\)".*/\1/p')
 
 # e2ee-unlock.yaml runs last, once the others are done: it needs the account encrypted.
+# widget.yaml is followed by the background refresh and widget-refresh.yaml, share.yaml by
+# two shares and share-check.yaml (device.sh).
 flows=()
 encrypted=false
+widget=false
+share=false
 for f in "${@:-*.yaml}"; do
-  for g in $f; do if [ "$(basename "$g")" = e2ee-unlock.yaml ]; then encrypted=true; else flows+=("$g"); fi; done
+  for g in $f; do
+    case $(basename "$g") in
+      e2ee-unlock.yaml) encrypted=true ;;
+      widget.yaml) widget=true ;;
+      share.yaml) share=true ;;
+      widget-refresh.yaml|share-picture.yaml|share-check.yaml) ;;
+      *) flows+=("$g") ;;
+    esac
+  done
 done
 passphrase='correct horse battery staple'
 run() {
@@ -62,6 +77,28 @@ if [ -n "${SCREENS:-}" ]; then
   exit 0
 fi
 [ ${#flows[@]} -eq 0 ] || run "${flows[@]}"
+# The flows around the app (the widget, the share sheet): Android only until the iOS
+# extensions join the app.
+[ "$platform" = android ] && . ./device.sh
+if $widget && [ "$platform" = android ]; then
+  add_widget
+  run widget.yaml
+  # The app is in the background now; the change reaches it only through the refresh.
+  sleep 3
+  TITLE='Feed the cat'
+  curl -fs -X POST "$server/api/v1/tasks" -H "Authorization: Bearer $token" -H 'Content-Type: application/json' \
+    -d "{\"title\":\"$TITLE\",\"due\":{\"date\":\"$(date +%F)\"}}" > /dev/null
+  force_refresh
+  run widget-refresh.yaml
+fi
+if $share && [ "$platform" = android ]; then
+  run share.yaml
+  share_link
+  sleep 3
+  open_picture
+  run share-picture.yaml
+  run share-check.yaml
+fi
 if $encrypted; then
   (cd "$root" && go run ./mobile/app/maestro/keyrecord "$passphrase") > "$data/keys.json"
   curl -fs -b "$data/cookies" -X PUT "$server/api/v1/encryption/keys" -H 'Content-Type: application/json' -H "Origin: $server" \

@@ -1,0 +1,21 @@
+# Share into the app, the second half: the shared page is an Inbox task with its title, and
+# its link in the notes; the shared picture is a task named after the file, with the file
+# uploaded as its attachment.
+appId: ${APP_ID}
+---
+- tapOn: Inbox
+- extendedWaitUntil:
+    visible: An article worth reading
+    timeout: 15000
+- assertVisible: receipt
+- tapOn: An article worth reading
+- extendedWaitUntil:
+    visible: .*example.com/article.*
+    timeout: 5000
+- back
+- runScript:
+    file: scripts/find-task.js
+    env:
+      TITLE: receipt
+- runScript: scripts/attachment-uploaded.js
+- runFlow: common/sign-out.yaml

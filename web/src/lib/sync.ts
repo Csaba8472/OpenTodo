@@ -102,6 +102,9 @@ export const useSyncStatus = status.use
 /** The current sync status outside React (tests, one-off reads). */
 export const syncSnapshot = status.get
 
+/** Calls `fn` on every change of the sync status, outside React (the native app's uploads). */
+export const onSyncStatus = status.subscribe
+
 /** Hide the "changes were not accepted" notice. */
 export function dismissRejected(): void {
   publish({ rejected: null })

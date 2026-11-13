@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ot_widget_background">#F21E2226</color>
+    <color name="ot_widget_text">#FFE8EAED</color>
+    <color name="ot_widget_muted">#FFA0A8B2</color>
+    <color name="ot_overdue">#FFFF7A73</color>
+</resources>

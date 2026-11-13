@@ -13,7 +13,8 @@ import { Navigator } from './nav/Navigator'
 import { applyAppearance } from './screens/SettingsScreen'
 import { UnlockScreen } from './screens/UnlockScreen'
 import { ServerScreen } from './ServerScreen'
-import { forgetLocal, onSignOut, restoreAccount, type Account } from './signIn'
+import { startDevice } from './device'
+import { forgetLocal, onSignOut, restoreOnce, type Account } from './signIn'
 import { bootLanguage } from './ui/i18n'
 import { useColors } from './ui/theme'
 
@@ -33,7 +34,7 @@ export default function App() {
   useEffect(() => {
     let live = true
     applyAppearance()
-    void bootLanguage().then(() => restoreAccount()).then(
+    void bootLanguage().then(() => restoreOnce()).then(
       (account) => live && setState(account ? { phase: 'signed-in', account } : { phase: 'signed-out' }),
       () => live && setState({ phase: 'signed-out' }),
     )
@@ -46,7 +47,10 @@ export default function App() {
 
   const signedIn = state.phase === 'signed-in' ? state.account : null
   useEffect(() => {
-    if (signedIn) void startAccountSync()
+    if (!signedIn) return
+    void startAccountSync()
+    // The widget, the reminders, shares and notification buttons (native-app-handover).
+    return startDevice()
   }, [signedIn])
 
   let screen

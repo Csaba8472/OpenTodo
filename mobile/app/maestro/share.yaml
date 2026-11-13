@@ -1,0 +1,7 @@
+# Share into the app (native-app-handover 1.4, "Share a link"), the first half: signed in,
+# then on the home screen. run.sh then shares a page's link and a picture to the app, as
+# Chrome's and Photos' Share do, and runs share-check.yaml.
+appId: ${APP_ID}
+---
+- runFlow: common/sign-in.yaml
+- pressKey: Home

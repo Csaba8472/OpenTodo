@@ -1,0 +1,43 @@
+# The Today widget fed by the app (native-app-handover 1.3, "Today widget fed by the
+# app"): a task due today shows on the widget; its row opens the task in the app;
+# completed in the app, it leaves the widget. run.sh puts the widget on the home screen
+# (Android) and then runs widget-refresh.yaml, so this flow ends signed in.
+appId: ${APP_ID}
+---
+- runScript:
+    file: scripts/create-task.js
+    env:
+      TITLE: Water the plants
+- runFlow: common/sign-in.yaml
+- extendedWaitUntil:
+    visible: Water the plants
+    timeout: 20000
+- pressKey: Home
+- extendedWaitUntil:
+    visible: Water the plants
+    timeout: 10000
+- tapOn: Water the plants
+# The task screen: its title as a field, and the When row.
+- extendedWaitUntil:
+    visible: When
+    timeout: 10000
+- back
+# Right after Back the list may still be settling, and a swipe then misses: try again.
+- repeat:
+    times: 3
+    while:
+      visible: Water the plants
+    commands:
+      - swipe:
+          from:
+            text: Water the plants
+          direction: RIGHT
+      - extendedWaitUntil:
+          notVisible: Water the plants
+          timeout: 5000
+          optional: true
+- assertNotVisible: Water the plants
+- pressKey: Home
+- extendedWaitUntil:
+    visible: Nothing left for today.
+    timeout: 10000

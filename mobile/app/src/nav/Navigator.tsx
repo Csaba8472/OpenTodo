@@ -3,7 +3,7 @@
 // navigation), each with its own native stack and large titles, and the sheets above them
 // (capture, the date sheet, the pickers, a task's menu) as native form sheets with detents.
 import { createNativeBottomTabNavigator, type NativeBottomTabIcon } from '@react-navigation/bottom-tabs/unstable'
-import { DarkTheme, DefaultTheme, NavigationContainer, type Theme } from '@react-navigation/native'
+import { DarkTheme, DefaultTheme, NavigationContainer, type LinkingOptions, type Theme } from '@react-navigation/native'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { unstable_getMaterialSymbolSourceAsync } from 'expo-symbols'
 import { useEffect, useState } from 'react'
@@ -103,13 +103,28 @@ function TabsScreen() {
 
 const SHEET = { presentation: 'formSheet', sheetGrabberVisible: true, headerShown: false } as const
 
+/**
+ * What the widget and the notifications open (native-app-handover): a task over Today, the
+ * capture sheet, or Today. `opentodo://signed-in` is sign-in's own, read before this mounts.
+ */
+export const LINKING: LinkingOptions<RootParams> = {
+  prefixes: ['opentodo://'],
+  // The typed config has no initialRouteName under a tab; it keeps Today under a linked task.
+  config: {
+    screens: {
+      Tabs: { screens: { TodayTab: { initialRouteName: 'Today', screens: { Today: 'today', Task: 'task/:id' } } } },
+      Capture: 'add',
+    },
+  } as LinkingOptions<RootParams>['config'],
+}
+
 export function Navigator() {
   const c = useColors()
   const dark = useColorScheme() === 'dark'
   const base = dark ? DarkTheme : DefaultTheme
   const theme: Theme = { ...base, colors: { ...base.colors, primary: c.accent, background: c.bg, card: c.bg, text: c.text, border: c.separator } }
   return (
-    <NavigationContainer theme={theme}>
+    <NavigationContainer linking={LINKING} theme={theme}>
       <Root.Navigator screenOptions={{ headerShown: false }}>
         <Root.Screen component={TabsScreen} name="Tabs" />
         <Root.Screen component={CaptureSheet} name="Capture" options={{ ...SHEET, sheetAllowedDetents: [0.5, 1], sheetInitialDetentIndex: 0 }} />

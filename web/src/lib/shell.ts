@@ -5,6 +5,7 @@
 // list in `capabilities` is never called, so an older shell keeps working for the
 // capabilities both sides know. The bridge comes from the platform port
 // (native-app-foundation D3): the native app has no web view and no bridge.
+import type { ShellReminder, ShellWidgetData } from './deviceSnapshot'
 import { platform } from './platform'
 
 /** The bridge version this web app speaks. */
@@ -46,22 +47,9 @@ export interface ShellGeofencePayload {
 /** The answer of `scheduleGeofences`: whether the shell may watch the regions in the background. */
 export type ShellLocationPermission = 'granted' | 'foreground-only' | 'denied' | 'unavailable'
 
-/** One reminder handed to the shell: the next 7 days, title only when allowed. */
-export interface ShellReminder {
-  id: string
-  taskId: string
-  fireAt: number
-  title?: string
-}
-
-/** The Today list the widgets show; titles only while the account is readable. */
-export interface ShellWidgetData {
-  updatedAt: number
-  locked: boolean
-  count: number
-  overdue: number
-  tasks: { id: string; title?: string; time?: string; priority: number; overdue: boolean }[]
-}
+// The schedule and the Today list are the device's snapshot (deviceSnapshot.ts), which
+// the native app publishes too (native-app-handover D1).
+export type { ShellReminder, ShellWidgetData } from './deviceSnapshot'
 
 /** The answer of `scheduleReminders`: whether the shell may show notifications. */
 export type ShellPermission = 'granted' | 'denied' | 'exact-denied'

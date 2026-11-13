@@ -1,7 +1,10 @@
 // The first screen: the server's address, its check (native-app "Server compatibility")
-// and sign-in through the system's authentication sheet (design D5), in one step.
+// and sign-in through the system's authentication sheet (design D5), in one step. After
+// the update from the web-view app, its stored address is filled in (native-app-handover
+// D7): its web sign-in cannot carry over, so the screen says why it asks once more.
 import { useState } from 'react'
 import { ActivityIndicator, KeyboardAvoidingView, Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import { container } from '../modules/opentodo-shared-container'
 import { checkServer, UPDATE_GUIDE } from './server'
 import { SignInError, type SignInProblem } from './session'
 import { signIn, type Account } from './signIn'
@@ -16,7 +19,8 @@ type Problem = { message: string; update?: boolean }
 
 export function ServerScreen({ onSignedIn }: { onSignedIn: (account: Account) => void }) {
   const c = useColors()
-  const [address, setAddress] = useState('')
+  const [carried] = useState(() => container.shellServer() ?? '')
+  const [address, setAddress] = useState(carried)
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState<Problem | null>(null)
 
@@ -47,7 +51,7 @@ export function ServerScreen({ onSignedIn }: { onSignedIn: (account: Account) =>
           accessibilityLabel="Server address"
           autoCapitalize="none"
           autoCorrect={false}
-          autoFocus
+          autoFocus={!carried}
           editable={!busy}
           inputMode="url"
           keyboardType="url"
@@ -60,6 +64,9 @@ export function ServerScreen({ onSignedIn }: { onSignedIn: (account: Account) =>
           textContentType="URL"
           value={address}
         />
+        {carried && address === carried && !problem && (
+          <Text style={[styles.note, { color: c.muted }]}>Sign in once more: the new app can’t use the old app’s sign-in.</Text>
+        )}
         {problem && (
           <View accessibilityLiveRegion="polite">
             <Text style={[styles.note, { color: c.danger }]}>{problem.message}</Text>

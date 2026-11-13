@@ -47,6 +47,12 @@ const config: ExpoConfig = {
   // The Android shell's application id (mobile/android/app/build.gradle.kts).
   android: {
     package: ownId || 'app.opentodo',
+    // Shares from other apps (native-app-handover): text and links, and images, one or several.
+    intentFilters: [
+      { action: 'SEND', category: ['DEFAULT'], data: [{ mimeType: 'text/*' }] },
+      { action: 'SEND', category: ['DEFAULT'], data: [{ mimeType: 'image/*' }] },
+      { action: 'SEND_MULTIPLE', category: ['DEFAULT'], data: [{ mimeType: 'image/*' }] },
+    ],
   },
 }
 

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The shared container's strings, from the Android shell (mobile/android). -->
+<resources>
+    <string name="ot_widget_today">Hoje</string>
+    <string name="ot_widget_today_description">As suas tarefas de hoje</string>
+    <string name="ot_widget_quick_add">Adição rápida</string>
+    <string name="ot_widget_quick_add_label">Adicionar tarefa</string>
+    <string name="ot_widget_quick_add_description">Abre o OpenTodo para adicionar uma tarefa</string>
+    <string name="ot_widget_updated">Atualizado às %1$s</string>
+    <string name="ot_widget_open_app">Abra o OpenTodo uma vez para preencher este widget.</string>
+    <string name="ot_widget_locked">Bloqueado. Tarefas: %1$d, em atraso: %2$d</string>
+    <string name="ot_widget_empty">Nada mais para hoje.</string>
+    <string name="ot_widget_untitled">Tarefa</string>
+    <string name="ot_widget_more">+ mais %1$d</string>
+    <string name="ot_channel_reminders">Lembretes</string>
+    <string name="ot_reminder_generic">Lembrete</string>
+    <string name="ot_reminder_text">Lembrete de tarefa</string>
+    <string name="ot_action_snooze">Adiar 10 min</string>
+    <string name="ot_action_done">Concluído</string>
+    <string name="ot_channel_notifications">Notificações</string>
+</resources>

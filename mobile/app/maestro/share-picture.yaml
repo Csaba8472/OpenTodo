@@ -1,0 +1,8 @@
+# Shares a picture to OpenTodo from the Files app, which run.sh opened (device.sh
+# open_picture): a person's Share, with the system's share sheet.
+appId: com.google.android.documentsui
+---
+- tapOn: Download
+- longPressOn: receipt.png
+- tapOn: Share
+- tapOn: OpenTodo

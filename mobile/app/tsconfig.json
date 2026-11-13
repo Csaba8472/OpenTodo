@@ -11,5 +11,5 @@
       "@shared/*": ["../../web/src/lib/*"]
     }
   },
-  "include": ["index.ts", "app.config.ts", "src", "test", "perf"]
+  "include": ["index.ts", "app.config.ts", "src", "modules", "test", "perf"]
 }

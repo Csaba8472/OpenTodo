@@ -1,0 +1,41 @@
+# Reminders on the device (native-app-handover 1.5, "Complete from the notification"): a
+# reminder made on the server reaches the app by sync and fires as a local notification
+# with the app in the background; Done completes the task without opening the app, and
+# the server has it completed after the app's background run sends the op.
+appId: ${APP_ID}
+---
+# Both before sign-in, so the first sync brings them together (a reminder made while the
+# app is in the background waits for the next refresh); sign-in takes up to a minute.
+- runScript:
+    file: scripts/create-task.js
+    env:
+      TITLE: Call the dentist
+- runScript:
+    file: scripts/create-reminder.js
+    env:
+      IN_SECONDS: '120'
+- runFlow: common/sign-in.yaml
+# Android 13 and later ask once for the notification permission, a moment after sign-in.
+- extendedWaitUntil:
+    visible: Allow
+    timeout: 10000
+    optional: true
+- tapOn:
+    text: Allow
+    optional: true
+- extendedWaitUntil:
+    visible: Call the dentist
+    timeout: 20000
+- pressKey: Home
+# The notification shade, open while the reminder comes in.
+- swipe:
+    start: 50%, 1%
+    end: 50%, 70%
+- extendedWaitUntil:
+    visible: Task reminder
+    timeout: 150000
+- tapOn: Done
+- pressKey: Back
+- runScript: scripts/completed-on-server.js
+- launchApp
+- runFlow: common/sign-out.yaml

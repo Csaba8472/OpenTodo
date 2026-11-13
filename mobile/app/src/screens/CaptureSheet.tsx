@@ -75,7 +75,8 @@ function ChipView({ chip, label, c, onPress }: { chip: Chip; label: string; c: C
 export function CaptureSheet({ route, navigation }: NativeStackScreenProps<RootParams, 'Capture'>) {
   const c = useColors()
   const insets = useSafeAreaInsets()
-  const context = route.params.context
+  // The quick-add widget opens it with no context: a task for the Inbox.
+  const context = route.params?.context ?? {}
   const field = useRef<ComponentRef<typeof TextInput>>(null)
   const [line, setLine] = useState('')
   const [dismissed, setDismissed] = useState<Span[]>([])

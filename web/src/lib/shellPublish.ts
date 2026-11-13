@@ -5,56 +5,19 @@
 // or as counts when the account is locked or the user signs out (the store empties).
 // Outside a shell nothing here runs.
 import { liveQuery, type Subscription } from 'dexie'
-import { localDueOf, logicalToday } from './dates'
-import { todayAssigneeFilter, todayList, type TodayAssigneeFilter } from './dayLists'
+import { META_INCLUDE_TITLES, shellReminders, shellWidget, todaySnapshot, upcomingReminders } from './deviceSnapshot'
 import { db, getMeta, setMeta } from './db'
-import { encryptionSnapshot, onEncryptionChange } from './e2ee'
+import { onEncryptionChange } from './e2ee'
 import { publishGeofences } from './geofences'
-import { has, publishWidget, scheduleReminders, shell, type ShellPermission, type ShellReminder, type ShellWidgetData } from './shell'
-import { currentUserId } from './sharing'
-import type { Reminder, Task } from './types'
+import { has, publishWidget, scheduleReminders, shell, type ShellPermission } from './shell'
 
 /** The device's "notifications through the app" switch (Settings → Notifications in a shell). */
 export const META_SHELL_NOTIFICATIONS = 'shell:notifications'
-/** Shared with web push: whether notifications carry task titles. */
-const META_INCLUDE = 'push:includeContent'
+const META_INCLUDE = META_INCLUDE_TITLES
 
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000
-const WIDGET_MAX = 50
 const DEBOUNCE_MS = 500
 
-/** The reminders the shell should schedule: live, not dismissed, firing in the next 7 days. */
-export function shellReminders(reminders: readonly Reminder[], tasks: readonly Task[], now: number, opts: { titles: boolean; encrypted: boolean }): ShellReminder[] {
-  const byId = new Map(tasks.map((task) => [task.id, task]))
-  const out: ShellReminder[] = []
-  for (const r of reminders) {
-    if (r.deleted_at || r.fire_at == null || r.fire_at < now || r.fire_at > now + WEEK_MS) continue
-    if (r.dismissed_at != null && r.dismissed_at >= r.fire_at) continue
-    const task = byId.get(r.task_id)
-    if (!task || task.deleted_at || task.completed_at) continue
-    const item: ShellReminder = { id: r.id, taskId: r.task_id, fireAt: r.fire_at }
-    if (opts.titles && !opts.encrypted && task.title) item.title = task.title
-    out.push(item)
-  }
-  return out.sort((a, b) => a.fireAt - b.fireAt)
-}
-
-/** The widgets' Today list: titles only while the account is readable on this device, counts otherwise. */
-export function shellWidget(tasks: readonly Task[], today: string, now: number, locked: boolean, hide?: TodayAssigneeFilter | null): ShellWidgetData {
-  const list = todayList(tasks.filter((task) => !task.deleted_at && !task.completed_at), today, hide)
-  const rows = list.slice(0, WIDGET_MAX).map((task) => {
-    const due = localDueOf(task.due)
-    const overdue = !!due && due.date < today
-    return {
-      id: task.id,
-      ...(locked ? {} : { title: task.title }),
-      ...(due?.time && !locked ? { time: due.time } : {}),
-      priority: task.priority,
-      overdue,
-    }
-  })
-  return { updatedAt: now, locked, count: list.length, overdue: rows.filter((r) => r.overdue).length, tasks: locked ? [] : rows }
-}
+export { shellReminders, shellWidget }
 
 /** Whether notifications carry task titles on this device (shared with web push). */
 export async function shellTitlesEnabled(): Promise<boolean> {
@@ -86,19 +49,13 @@ export async function setShellNotifications(on: boolean): Promise<ShellPermissio
 
 /** Computes and hands over the schedule now; empty when off, locked or signed out. */
 async function publishReminders(now = Date.now()): Promise<ShellPermission | null> {
-  const enc = encryptionSnapshot()
-  const on = await shellNotificationsEnabled()
-  if (!on || (enc.enabled && !enc.unlocked)) return scheduleReminders([])
-  const [reminders, tasks, titles] = await Promise.all([db.reminders.toArray(), db.tasks.toArray(), getMeta<boolean>(META_INCLUDE, false)])
-  return scheduleReminders(shellReminders(reminders, tasks, now, { titles, encrypted: enc.enabled }))
+  if (!(await shellNotificationsEnabled())) return scheduleReminders([])
+  return scheduleReminders(await upcomingReminders(now))
 }
 
 /** Computes and hands over the widgets' Today list now. */
 async function publishToday(now = Date.now()): Promise<void> {
-  const enc = encryptionSnapshot()
-  const [tasks, prefs, memberships, me] = await Promise.all([db.tasks.toArray(), db.userPrefs.get('me'), db.memberships.toArray(), currentUserId()])
-  const hide = todayAssigneeFilter(prefs, memberships, me)
-  publishWidget(shellWidget(tasks, logicalToday(undefined, now), now, enc.enabled && !enc.unlocked, hide))
+  publishWidget(await todaySnapshot(now))
 }
 
 let started = false

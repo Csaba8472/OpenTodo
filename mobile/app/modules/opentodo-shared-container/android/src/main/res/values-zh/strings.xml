@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The shared container's strings, from the Android shell (mobile/android). -->
+<resources>
+    <string name="ot_widget_today">今天</string>
+    <string name="ot_widget_today_description">你今天的任务</string>
+    <string name="ot_widget_quick_add">快速添加</string>
+    <string name="ot_widget_quick_add_label">添加任务</string>
+    <string name="ot_widget_quick_add_description">打开 OpenTodo 以添加任务</string>
+    <string name="ot_widget_updated">更新于 %1$s</string>
+    <string name="ot_widget_open_app">打开一次 OpenTodo，以填充此小组件。</string>
+    <string name="ot_widget_locked">已锁定。任务：%1$d，已逾期：%2$d</string>
+    <string name="ot_widget_empty">今天没有剩余的事项。</string>
+    <string name="ot_widget_untitled">任务</string>
+    <string name="ot_widget_more">另外 %1$d 项</string>
+    <string name="ot_channel_reminders">提醒</string>
+    <string name="ot_reminder_generic">提醒</string>
+    <string name="ot_reminder_text">任务提醒</string>
+    <string name="ot_action_snooze">延后 10 分钟</string>
+    <string name="ot_action_done">完成</string>
+    <string name="ot_channel_notifications">通知</string>
+</resources>

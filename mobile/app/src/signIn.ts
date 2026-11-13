@@ -3,7 +3,9 @@
 // belongs to.
 import * as WebBrowser from 'expo-web-browser'
 import { Platform } from 'react-native'
+import { setCurrentUserId } from '@shared/sharing'
 import { stopAccountSync } from './accountSync'
+import { container } from '../modules/opentodo-shared-container'
 import { clearDevicePrefs } from './host'
 import { forgetAccount, openAccount } from './storage/account'
 import { session, vault } from './appSession'
@@ -21,6 +23,18 @@ function deviceName(): string {
   return Platform.OS === 'ios' ? 'iPhone' : 'Android'
 }
 
+let restored: Promise<Account | null> | null = null
+
+/**
+ * The account of the last launch, opened once per process: the screen and a background
+ * run (src/background.ts) can start in the same JavaScript, and a second open would swap
+ * the database under the first.
+ */
+export function restoreOnce(): Promise<Account | null> {
+  restored ??= restoreAccount().catch((err: unknown) => { restored = null; throw err })
+  return restored
+}
+
 /** The account signed in at the last launch, with its database open, or null. */
 export async function restoreAccount(): Promise<Account | null> {
   void session.retrySignOut()
@@ -31,8 +45,17 @@ export async function restoreAccount(): Promise<Account | null> {
     await session.signOut()
     return null
   }
-  openAccount(account.server, account.userId)
+  await open(account)
   return account
+}
+
+/**
+ * Makes the account's database current and records who is signed in there, as the web app
+ * does at sign-in: assignment, Today's "assigned to me" and new rows' authors read it.
+ */
+async function open(account: Account): Promise<void> {
+  openAccount(account.server, account.userId)
+  await setCurrentUserId(account.userId)
 }
 
 /** Signs in through the sheet and opens the account's database. Throws SignInError. */
@@ -48,7 +71,8 @@ export async function signIn(server: string): Promise<Account> {
     if (!userId) throw new SignInError('failed')
     const account = { server, userId }
     await vault.set(ACCOUNT, JSON.stringify(account))
-    openAccount(server, userId)
+    await open(account)
+    restored = Promise.resolve(account)
     return account
   } catch (err) {
     // A grant the app cannot use (no account read, the Keychain refused) ends on the server too.
@@ -77,6 +101,9 @@ export async function signOut(): Promise<void> {
 /** What is left on the phone when the server ended the session: nothing of the account. */
 export async function forgetLocal(): Promise<void> {
   await stopAccountSync()
+  // The widget, the reminders, the queues and the background refresh go with the account.
+  container.clear()
+  restored = Promise.resolve(null)
   await vault.set(ACCOUNT, null)
   await forgetAccount()
   clearDevicePrefs()

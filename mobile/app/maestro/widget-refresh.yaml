@@ -1,0 +1,15 @@
+# The widget after a background refresh (native-app-handover 1.6, "Changed on another
+# device"): run.sh adds "Feed the cat" on the server while the app is in the background
+# after widget.yaml, and runs the app's refresh job; the widget shows it without the app
+# being opened. Then sign-out empties the widget.
+appId: ${APP_ID}
+---
+- extendedWaitUntil:
+    visible: Feed the cat
+    timeout: 30000
+- launchApp
+- runFlow: common/sign-out.yaml
+- pressKey: Home
+- extendedWaitUntil:
+    visible: Open OpenTodo once to fill this widget.
+    timeout: 10000

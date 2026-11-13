@@ -1,0 +1,8 @@
+{
+  "name": "opentodo-shared-container",
+  "version": "1.0.0",
+  "private": true,
+  "description": "The OpenTodo app's shared container: widget snapshot, device reminders, share inbox, background refresh",
+  "main": "index.ts",
+  "license": "AGPL-3.0-only"
+}

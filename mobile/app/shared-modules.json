@@ -27,6 +27,7 @@
     "web/src/lib/db.ts",
     "web/src/lib/defaultReminder.ts",
     "web/src/lib/dependencies.ts",
+    "web/src/lib/deviceSnapshot.ts",
     "web/src/lib/deviceStorage.ts",
     "web/src/lib/docfields.ts",
     "web/src/lib/duration.ts",
