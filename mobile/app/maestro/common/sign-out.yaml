@@ -6,9 +6,16 @@ appId: ${APP_ID}
     element: Settings
 - tapOn: Settings
 - tapOn: Sign out
+# The confirmation button beside Cancel. The Settings row also matches Sign out and is
+# below the message, so a below-message selector can tap the obscured row instead.
+- extendedWaitUntil:
+    visible: .*stay on your server.*
+    timeout: 5000
+- waitForAnimationToEnd
 - tapOn:
     text: (?i)sign out
-    index: -1
+    rightOf:
+      text: (?i)cancel
 - extendedWaitUntil:
     visible: Your server
     timeout: 20000

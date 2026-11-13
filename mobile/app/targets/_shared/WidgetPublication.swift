@@ -9,6 +9,8 @@ import WidgetKit
 enum WidgetPublication {
     static let fileName = "widget.json"
     static let kind = "TodayWidget"
+    /// The widget shows the publication's time once it is this old, in seconds (native-app-handover D2).
+    static let staleAfter: TimeInterval = 60 * 60
 
     struct Task: Decodable, Equatable {
         let id: String

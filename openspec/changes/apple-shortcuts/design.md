@@ -1,111 +1,52 @@
 # Design
 
-## Context
+## Context and dependency
 
-The iOS shell (`ios-shell`) loads the web app in a `WKWebView` and adds what a browser cannot do through bridge version 1 (`web/src/lib/shell.ts`). The capabilities are `reminders`, `share`, `widgets`, `biometric` and `links`. It already has:
-- a Today widget drawn from the JSON the web app publishes (`publishWidget`, `web/src/lib/shellPublish.ts`);
-- a hidden web view run (`HiddenRun` in `BackgroundRefresh.swift`) that loads the web app for at most 30 seconds;
-- the quick-add address `/?add=<text>` that the Android quick-add widget already uses (`web/src/lib/shellActions.ts`).
-
-ios-shell D3 rejected a native REST client in the shell: it would be a second API client and a second credential, and it would bypass the web app's encryption. This change keeps that rule.
-
-## Goals / Non-Goals
-
-**Goals:**
-- Hands-free capture with Siri, the Action Button and the lock screen, working offline and on encrypted accounts.
-- Read-only glances (count, next tasks) without opening the app.
-- Capture from Shortcuts for people who only use the installed web app.
-
-**Non-Goals:**
-- Editing or completing tasks from Siri, a watch app, Android App Actions, a capture token scope.
+This change follows `native-app-handover`. The iOS app is React Native with a local SQLite account, the shared quick-add parser and operation log, and `opentodo-shared-container` for App Group storage and background work. The widget and share targets live in `mobile/app/targets`. It does not load a web view. The separate Shortcuts pack still supports browser-only users.
 
 ## Decisions
 
-**D1. A capture is queued in the shell and filed by the web app.**
-"Add task" appends an entry `{id, text, createdAt, source}` to `capture-queue.json` in the App Group container (file protection `complete`):
-- `id` is a new UUID.
-- `text` is trimmed and at most 500 characters, the same cap as `/?add=`.
-- `source` is `siri`, `shortcut`, `widget` or `control`.
+### D1. Durable on-device captures
 
-The web app files each entry when it can read the queue (D3): it runs the line through the quick-add parser in the account's languages and creates the task through `mutate()` with **the capture's id as the task id**. Then it acknowledges the ids, and the shell removes them.
+An App Intent appends `{id, text, createdAt, source}` to `capture-queue.json` in the App Group. The id is a UUID; text is trimmed and at most 500 characters; source is `siri`, `shortcut`, `widget` or `control`. File access is coordinated across the app and extensions and uses complete Data Protection. At most 50 entries wait. A full queue refuses the new capture with an actionable answer and never drops an existing entry. Entries do not expire.
 
-- **Exactly once.** If the web app stops between the create and the acknowledgement, the next run finds a task with that id in the local store, skips the create and only acknowledges. Two devices never share a queue, so there is nothing to converge beyond the ordinary create op.
-- **Offline.** The create goes into the outbox like any edit and syncs later.
-- **Encrypted accounts.** The web app files only while the account is unlocked on the device, so the title is encrypted by `mutate()` as usual. While the account is locked the entries wait in the container and never leave the phone in clear.
-- **Limits.** At most 50 entries wait at once. A 51st "Add task" answers that the queue is full and asks the user to open the app, and nothing is dropped silently. Entries never expire, because they are the user's words.
-- **Server change and sign-out.** The queue is deleted together with the rest of the shell's data when the server is changed (`AppModel.forgetServer`). On sign-out, the web app's sign-out confirmation says "N captures from Siri have not been added yet" when the queue is not empty, and signing out deletes them, as it deletes the reminder schedule and the widget data. Otherwise the next account to sign in would receive another person's captures.
+The native app drains the queue through its Expo module at launch, foreground, after sync and after unlock. It parses the line in the account's languages with the shared quick-add parser and writes through `mutate()` with the capture id as the task id. It acknowledges only after the task exists locally. A restart between write and acknowledgement therefore creates no duplicate. Offline tasks wait in the normal outbox.
 
-Alternatives considered:
-- **A native REST call with a token kept in the Keychain.** This was ios-shell D3's rejected option. It needs a second credential, it cannot encrypt for an encrypted account, and it fails offline.
-- **Opening the app on every Siri request** (`openAppWhenRun`). That is not hands-free: the phone unlocks and the screen changes while the user is walking or driving.
-- **An App Intent that writes into the web app's IndexedDB directly.** That storage belongs to WebKit and has no supported native access.
+An encrypted account files captures only while unlocked. Until then text stays in the protected App Group and never goes to the server. Sign-out shows the number of waiting captures before confirmation and deletes them on confirmation; changing accounts never transfers a queue to another person. Extend the module's existing sign-out cleanup.
 
-**D2. Filing happens at once when it can, later otherwise.**
-App Intents defined in the app target run in the app's process. iOS starts the app in the background when needed. After queueing, the intent asks `HiddenRun` to load the web app and waits up to 8 seconds for the acknowledgement:
-- Filed in time: Siri says "Added to OpenTodo."
-- Not filed in time (no network for the page load in the portable build, a slow phone, a locked encrypted account): Siri says "Saved on this iPhone. OpenTodo adds it the next time the app runs." When the last widget publication was `locked`, it says "… once you unlock OpenTodo."
+Rejected: a separate REST credential, writing SQLite from Swift, and opening the app on every Siri request. The existing app runtime owns parsing, encryption and ops.
 
-The queue is also drained whenever the app comes to the front and during each background refresh. In the portable build the hidden run needs the network to load the page (ios-shell D2). That is why the queue exists at all: nothing is lost while the server is unreachable.
+### D2. Best-effort filing without a screen
 
-**D3. The bridge capability `capture`.**
-It is added to bridge version 1. The version is not bumped, because capabilities already gate methods (native-shells "The bridge is optional and versioned"). It has two methods:
-- `readCaptures(): string`: the JSON array of waiting entries, at most 50.
-- `ackCaptures(json: string)`: the ids that were filed or found filed.
+App Intents in the app target run in the app process. After queueing, the intent signals the native app's background JavaScript entry point and waits at most eight seconds for acknowledgement. There is no `HiddenRun` or web page to load. Offline filing can succeed because the account is local; an unlocked account key is available only when the app already holds it in memory.
 
-The web app reads the queue on start, when it becomes visible, and once after each sync while the shell lists `capture`. A browser, the Android shell and an older iOS shell never list it, so nothing changes there. The payloads go into the shared bridge fixtures (`native-shells` "Shared bridge fixtures"), so the web and Swift tests read the same files.
+Siri says "Added to OpenTodo" if acknowledged, otherwise "Saved on this iPhone. OpenTodo adds it the next time the app runs", or "… once you unlock OpenTodo" when the last publication was locked. Runtime startup failure leaves the entry queued. Native intents make no network calls.
 
-**D4. The intents and their phrases.**
+### D3. The Expo module contract
 
-| Intent | Opens the app | What it does |
-|---|---|---|
-| Add task (`text`, requested by Siri when missing) | no | D1, D2 |
-| Open quick add | yes | opens `/?add=` (empty) |
-| Open Today | yes | opens `/today` |
-| What's on today | no | answers from the last widget publication: the count, the overdue count and up to 5 titles with their times, plus "as of 09:12". When the publication is `locked` it gives counts only. With no publication yet: "Open OpenTodo once to see today here." |
+Add `readCaptures()` and `ackCaptures(ids)` to `mobile/app/modules/opentodo-shared-container`, plus an event for an appended capture. Read does not consume. Versioned JSON fixtures are shared between Jest and Swift tests. Browser code and the retired shell bridge gain no capability or method.
 
-Every intent is an App Shortcut with one or two phrases that contain the app name (an `AppShortcutsProvider` requirement), localised in en, de, fr, es, it and pt in `AppShortcuts.xcstrings`. Example: "Add a task in OpenTodo" and "Füge in OpenTodo eine Aufgabe hinzu". The Action Button and the iOS 18 controls can run any App Shortcut, so neither needs its own code beyond D5.
+### D4. Intents and phrases
 
-**D5. Widgets: a quick-add button, lock-screen accessories, a control.**
-WidgetKit has no text field (ios-shell D8), but a widget can be a button that opens the app:
-- **Quick add (systemSmall):** a "+ Add task" button. The URL is `opentodo://add`, which the shell maps to `/?add=`, the same route as Android's widget button.
-- **Lock screen:**
-  - `accessoryCircular`: today's count, with a dot when anything is overdue;
-  - `accessoryRectangular`: the next two or three tasks with their time;
-  - `accessoryInline`: "3 tasks today · 1 overdue";
-  - a second `accessoryCircular` that is an "Add" button.
-- **Control (iOS 18+ only, `ControlWidgetButton`):** "Add task", which opens quick add. On iOS 16.4 to 17 it does not exist and nothing else changes.
+| Intent | Opens the app | Behavior |
+| --- | --- | --- |
+| Add task, text requested when absent | No | D1–D2 |
+| Open quick add | Yes | `opentodo://add` |
+| Open Today | Yes | `opentodo://today` |
+| What's on today | No | Last widget snapshot: count, overdue count, at most five titles/times and publication time; counts only when locked; an open-once hint with no snapshot |
 
-All of them read the same published JSON as the Today widget and follow its rules: titles only from an unlocked publication, counts only for a locked account, and the update time shown where there is room. Titles on the lock screen are marked `privacySensitive()`, so iOS hides them while the phone is locked, unless the user allowed lock-screen widget data in iOS settings. The widgets never make a request.
+Use an `AppShortcutsProvider` with phrases naming OpenTodo in English, German, French, Spanish, Italian and Portuguese. The Action Button and a user's own Shortcuts invoke the same intents. Do not add task editing or search intents.
 
-**D6. The Shortcuts pack reuses the browser extension's two modes.**
-Two Shortcuts, built from plist sources in `mobile/shortcuts/` and signed for distribution (`shortcuts sign --mode anyone`) on the macOS CI runner on final tags. They are attached to the release and linked from the docs.
-- **Add to OpenTodo.** It asks for text (dictation works) and runs in one of two modes, chosen when the Shortcut is imported:
-  - *Capture screen* (default, no token): opens `https://<server>/share?title=<text>` in Safari or the installed web app, where the text fills the quick-add style title field. The user saves there, and an encrypted account encrypts on the device.
-  - *Quick save* (a `full` token, as the extension's Quick save): first reads `GET /api/v1/me`. When `encryption.enabled` is true it uses the capture screen instead, because the server accepts a plaintext REST write for an encrypted account and encrypts it only later (`end-to-end-encryption`), and a phone capture must not put a readable title into the log. Otherwise it calls `POST /api/v1/quick-add/parse`, then `POST /api/v1/tasks` with the parsed fields, and shows "Saved". On 401, 403 or no answer within 10 seconds, it falls back to the capture screen with the same text and says why.
-- **OpenTodo Today.** Opens `https://<server>/today`.
+### D5. Widget surfaces
 
-Import questions ask for the server address and, for Quick save, the token. The docs tell the user to create a dedicated token named "iPhone Shortcuts" so it can be revoked alone, and never to use an `admin` token. The Shortcut talks only to the address the user typed.
+Extend `mobile/app/targets/widget`: a systemSmall Add button; accessoryCircular count/overdue and Add widgets; accessoryRectangular next tasks; accessoryInline summary; and an Add task ControlWidgetButton on iOS 18+. All read the handover's Today snapshot, never a network. Lock-screen titles use `privacySensitive()` and follow the unlocked-publication rule; show the update time where there is room. Quick add uses `opentodo://add`, handled by the native capture sheet. Existing Today widgets stay intact on both platforms.
 
-Rejected: a new `capture` token scope. It would be a new scope in AGENTS rule 4, a new side table and new policy code for a convenience that the capture screen already offers without any token. Also rejected: an `agent` token. History would label the task "AI assistant" and it depends on the AI switches.
+### D6. Browser Shortcuts pack
 
-If CI cannot sign Shortcuts (the command needs a signed-in macOS user), the owner signs them by hand on release and attaches them. Task 5.3 records which way works.
+Keep plist sources in `mobile/shortcuts/`, signed with `shortcuts sign --mode anyone` on final-tag macOS CI, or manually by the owner if headless signing is unavailable. Publish `OpenTodo-Add.shortcut` and `OpenTodo-Today.shortcut`.
 
-## Data model impact
+Add to OpenTodo defaults to the token-free `/share?title=` capture screen. Quick save uses a dedicated `full` token, reads `/api/v1/me` first, and uses the capture screen instead for encrypted accounts. Otherwise parse through `/api/v1/quick-add/parse`, then create through `/api/v1/tasks`. On 401, 403 or a ten-second timeout, fall back once with the original text and explain why. At most one task per run. OpenTodo Today opens `/today` on the configured server. Import questions ask for server, mode and token; docs recommend a dedicated device token and forbid an admin token. No other host is contacted and no new token scope is introduced.
 
-None. No op field, no route, no migration. A capture is an ordinary task create (op schema unchanged). The shell stores `capture-queue.json` in its App Group container. It is never synced, exported or sent anywhere except as the web app's task create.
+## Impact and verification
 
-## Size
-
-- iOS app: about 150 KB more (intents, widget views, string catalog). App Intents and WidgetKit are system frameworks.
-- Web app: `shellCaptures.ts` and the sign-out notice, under 2 KB gzip.
-- Server: unchanged.
-
-## Interface budget and progressive disclosure
-
-Nothing new appears in the web app for anyone not using the iOS app. In the iOS app the only visible web-app change is one sentence in the sign-out confirmation, shown only when captures are waiting. No sidebar destination, list chrome, task property or shortcut is added. The widgets and intents live in iOS (the widget gallery, Shortcuts, Settings ▸ Action Button), where the user adds them on purpose. Simple-list users see nothing new.
-
-## Risks
-
-- **Late filing in the portable build.** A capture made offline is filed once the app can load. Siri says so, and the docs explain it.
-- **Siri phrase quality per language.** The phrases are reviewed by the same translators as the web app (docs/translating.md).
-- **Shortcut signing in CI** may not work headless (D6). There is a manual fallback.
+No schema, server route, op field or dependency is added. Estimated app growth: 150 KB for intents, widgets and strings using system frameworks. The browser bundle and server binary are unchanged. The native parser and op path remain shared; test offline filing, interruption, locked-account deferral, queue limits, sign-out and the exact payload fixture. Run native prebuild/build lanes and Maestro flows; real-device Siri, locked-phone and Action Button checks remain release evidence.

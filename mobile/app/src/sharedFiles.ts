@@ -2,17 +2,18 @@
 // attachment of the share's task. The row is written with mutate() at once, as the web's
 // planFiles writes it, so the task lists the file offline; the bytes stay in the app's
 // own storage until an upload succeeds (at the share, on coming to the front and at each
-// background refresh). The app cannot encrypt a file yet (React Native's Blob gives no
-// bytes to JavaScript), so on an encrypted account, or when the server takes no files,
-// the task's notes name the files instead.
+// background refresh). Encrypted accounts use the shared OTAT1 envelope before the
+// bytes reach the server; the originals are removed only after a successful upload.
 import { cleanName, limits } from '@shared/attachments'
-import { getMeta, setMeta } from '@shared/db'
-import { encryptionSnapshot } from '@shared/e2ee'
-import { uuid } from '@shared/ids'
+import { db, getMeta, setMeta } from '@shared/db'
+import { currentKey, encryptionSnapshot } from '@shared/e2ee'
+import { nameId } from '@shared/ids'
 import { mutateMany, type Change } from '@shared/ops'
 import { currentUserId } from '@shared/sharing'
 import { container, type QueuedShare } from '../modules/opentodo-shared-container'
 import { session } from './appSession'
+import { accountWork } from './accountWork'
+import { sealSharedFile } from './sharedFileCrypto'
 
 type SharedFile = QueuedShare['files'][number]
 
@@ -21,11 +22,13 @@ const META_UPLOADS = 'device:pendingUploads'
 interface PendingUpload {
   id: string
   path: string
+  source?: string
 }
 
 /** Whether shared files can become attachments here, and why not otherwise. */
 export async function attachable(): Promise<boolean> {
-  if (encryptionSnapshot().enabled) return false
+  const enc = encryptionSnapshot()
+  if (enc.enabled && !enc.unlocked) return false
   const l = await limits()
   return !l || l.enabled
 }
@@ -35,28 +38,68 @@ export function fileNames(files: readonly SharedFile[]): string {
   return files.map((f) => `- ${f.name}`).join('\n')
 }
 
-/** Writes an attachment row per file and uploads them; files over the server's limit are left out. */
+/** Writes an attachment row per file and uploads them; a refused file stays queued for retry. */
 export async function attachShared(taskId: string, files: readonly SharedFile[], now = Date.now()): Promise<void> {
+  const check = accountWork()
   // A row without its author is refused by the server, and holds up the outbox behind it.
   const author = await currentUserId()
-  if (!author) return
+  check()
+  if (!author) throw new Error('Sign in to add files.')
   const l = await limits()
+  check()
+  const key = encryptionSnapshot().enabled ? await currentKey() : undefined
+  check()
+  if (key === null) throw new Error('Unlock encryption to add files.')
   const changes: Change[] = []
   const pending = await getMeta<PendingUpload[]>(META_UPLOADS, [])
+  check()
   for (const [i, f] of files.entries()) {
-    if (l && f.size > l.max_file_bytes) continue
-    const sha256 = await container.fileSha256(f.path)
-    if (!sha256) continue
-    const id = uuid()
+    const id = nameId('native-share-file', `${taskId}:${i}`)
+    // The share keeps its id through a crash between saving its rows and acknowledging it.
+    const existing = await db.attachments.get(id)
+    check()
+    if (existing) continue
+    if (l && f.size > l.max_file_bytes) throw new Error('Shared file exceeds the server limit.')
+    let stored = { path: f.path, size: f.size }
+    if (key) {
+      const file = await xhr('GET', `file://${f.path}`, { blob: true })
+      check()
+      if (!file.blob || file.status >= 400) throw new Error('Shared file cannot be read.')
+      stored = await sealSharedFile(key, id, file.blob)
+      check()
+    }
+    if (l && stored.size > l.max_file_bytes) {
+      if (stored.path !== f.path) container.removeFile(stored.path)
+      throw new Error('Encrypted shared file exceeds the server limit.')
+    }
+    const sha256 = await container.fileSha256(stored.path)
+    check()
+    if (!sha256) throw new Error('Shared file cannot be read.')
     changes.push({ entity: 'attachment', entityId: id, patch: {
       task_id: taskId, author_id: author, comment_id: null, name: cleanName(f.name), mime: f.type || 'application/octet-stream',
-      size: f.size, sha256, url: null, encrypted: false, created_at: now + i, uploaded_at: null, deleted_at: null,
+      size: stored.size, sha256, url: null, encrypted: !!key, created_at: now + i, uploaded_at: null, deleted_at: null,
     } })
-    pending.push({ id, path: f.path })
+    const prior = pending.findIndex((p) => p.id === id)
+    if (prior >= 0) {
+      const old = pending.splice(prior, 1)[0]
+      if (old.path !== f.path) container.removeFile(old.path)
+    }
+    pending.push({ id, path: stored.path, source: f.path })
   }
   if (!changes.length) return
+  // Keep the bytes reachable before publishing the rows. An interrupted write can retry;
+  // an upload cannot start until the rows reach the server.
+  check()
+  await db.transaction('rw', db.meta, async () => {
+    check()
+    const ids = new Set(changes.map((c) => c.entityId))
+    const live = await getMeta<PendingUpload[]>(META_UPLOADS, [])
+    check()
+    await setMeta(META_UPLOADS, [...live.filter((p) => !ids.has(p.id)), ...pending.filter((p) => ids.has(p.id))])
+  })
+  check()
   await mutateMany(changes)
-  await setMeta(META_UPLOADS, pending)
+  check()
   void uploadPending().catch(() => undefined)
 }
 
@@ -73,35 +116,60 @@ function xhr(method: 'GET' | 'PUT', url: string, opts: { body?: Blob; headers?: 
   })
 }
 
-const transport: typeof fetch = async (input, init) => {
+const transport = (check: () => void): typeof fetch => async (input, init) => {
+  check()
   const headers: Record<string, string> = {}
   new Headers(init?.headers).forEach((v, k) => { headers[k] = v })
   const res = await xhr('PUT', String(input), { body: init?.body as Blob, headers })
+  check()
   return new Response(null, { status: res.status })
 }
 
-/** Sends every file still waiting; a refused file (too large, gone) is dropped. */
-export async function uploadPending(): Promise<number> {
+/** Sends every file still waiting; failed uploads retain their original bytes for retry. */
+let uploading: Promise<number> | null = null
+
+export function uploadPending(): Promise<number> {
+  uploading ??= sendPending().finally(() => { uploading = null })
+  return uploading
+}
+
+async function sendPending(): Promise<number> {
+  const check = accountWork()
+  const server = session.server
   const pending = await getMeta<PendingUpload[]>(META_UPLOADS, [])
-  if (!pending.length || !session.server) return 0
+  check()
+  if (!pending.length || !server) return 0
   const left: PendingUpload[] = []
   let sent = 0
   for (const p of pending) {
     const file = await xhr('GET', `file://${p.path}`, { blob: true }).catch(() => null)
-    // A file that is gone cannot be sent: the row stays without its bytes, as on the web.
-    if (!file?.blob || file.status >= 400) continue
+    check()
+    if (!file?.blob || file.status >= 400) { left.push(p); continue }
     try {
-      const res = await session.fetchWith(transport)(`${session.server}/api/v1/attachments/${encodeURIComponent(p.id)}/content`, {
+      const res = await session.fetchWith(transport(check))(`${server}/api/v1/attachments/${encodeURIComponent(p.id)}/content`, {
         method: 'PUT', body: file.blob, headers: { 'Content-Type': 'application/octet-stream' },
       })
-      if (res.status >= 500 || res.status === 401 || res.status === 404) { left.push(p); continue }
-      if (res.ok) sent++
+      check()
+      // The server committed the previous attempt but its response was lost.
+      if (!res.ok && res.status !== 409) { left.push(p); continue }
+      sent++
       container.removeFile(p.path)
+      if (p.source && p.source !== p.path) container.removeFile(p.source)
     } catch {
+      check()
       // Offline: try again later.
       left.push(p)
     }
   }
-  await setMeta(META_UPLOADS, left)
+  check()
+  await db.transaction('rw', db.meta, async () => {
+    check()
+    const attempted = new Map(pending.map((p) => [p.id, p.path]))
+    const current = await getMeta<PendingUpload[]>(META_UPLOADS, [])
+    check()
+    const added = current.filter((p) => attempted.get(p.id) !== p.path)
+    const changed = new Set(added.map((p) => p.id))
+    await setMeta(META_UPLOADS, [...left.filter((p) => !changed.has(p.id)), ...added])
+  })
   return sent
 }

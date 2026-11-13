@@ -6,8 +6,8 @@
 // notification while the app is not in front; the server cannot push to the app (D4).
 import { db, getMeta, setMeta } from '@shared/db'
 import { todaySnapshot, upcomingReminders } from '@shared/deviceSnapshot'
-import { encryptionSnapshot, onEncryptionChange } from '@shared/e2ee'
-import { completeTask, createTask } from '@shared/ops'
+import { encryptionSnapshot, loadEncryptionState, onEncryptionChange } from '@shared/e2ee'
+import { completeTask, mutateMany, planTask } from '@shared/ops'
 import { dismissReminder, snoozeReminder } from '@shared/reminders'
 import { isEmptyShare, parseShare, proposedDescription, proposedOrigin, proposedTitle, titleFromFiles } from '@shared/share'
 import { onSyncStatus, syncSnapshot } from '@shared/sync'
@@ -17,6 +17,7 @@ import { container, type QueuedShare } from '../modules/opentodo-shared-containe
 import { attachable, attachShared, fileNames, uploadPending } from './sharedFiles'
 import type { SqliteDatabase } from './storage/adapter'
 import { t } from './ui/i18n'
+import { accountWork } from './accountWork'
 
 /** The stores the widget and the reminders read (not meta: notifyNew writes there). */
 const WATCHED = new Set(['tasks', 'reminders', 'userPrefs', 'memberships', 'notifications'])
@@ -29,30 +30,46 @@ export const REMINDER_WINDOW = 60
 /** Publishes the widget's snapshot and the reminder schedule from the local store now. */
 export async function publishDevice(now = Date.now()): Promise<void> {
   if (!container.available) return
-  container.publishWidget(await todaySnapshot(now))
+  const check = accountWork()
+  const snapshot = await todaySnapshot(now)
+  check()
+  container.publishWidget(snapshot)
   // A locked account (every cold start of an encrypted one, every background run) keeps
   // the schedule it had: its notifications carry no titles, and it would empty otherwise.
   const enc = encryptionSnapshot()
   if (enc.enabled && !enc.unlocked) return
   // Titles stay on the phone (local notifications); an encrypted account's never show.
-  container.scheduleReminders((await upcomingReminders(now, { titles: true })).slice(0, REMINDER_WINDOW))
+  const reminders = (await upcomingReminders(now, { titles: true })).slice(0, REMINDER_WINDOW)
+  check()
+  await container.scheduleReminders(reminders)
 }
 
 /** Writes the notification buttons pressed since the last call as ops (Complete, Snooze 10 min). */
-export async function applyQueuedActions(): Promise<number> {
+let applyingActions: Promise<number> | null = null
+
+export function applyQueuedActions(): Promise<number> {
+  applyingActions ??= drainActions().finally(() => { applyingActions = null })
+  return applyingActions
+}
+
+async function drainActions(): Promise<number> {
+  const check = accountWork()
   const actions = container.takeActions()
   for (const a of actions) {
-    try {
-      if (a.action === 'snooze') await snoozeReminder(a.id, '10m', a.at)
-      else {
-        const r = await db.reminders.get(a.id)
-        const task = r ? await db.tasks.get(r.task_id) : undefined
-        if (task && !task.deleted_at && !task.completed_at) await completeTask(task.id, { now: a.at })
-        else if (r) await dismissReminder(a.id, a.at)
-      }
-    } catch {
-      // A reminder this device no longer has: nothing to write.
+    const r = await db.reminders.get(a.id)
+    check()
+    const task = r ? await db.tasks.get(r.task_id) : undefined
+    check()
+    // Stale notifications may survive an OS delivery race at sign-out. Never create
+    // a reminder from an action whose live task/reminder is absent in this account.
+    if (r && !r.deleted_at && task && !task.deleted_at) {
+      if (a.action === 'snooze' && !task.completed_at) await snoozeReminder(a.id, '10m', a.at)
+      else if (!task.completed_at) await completeTask(task.id, { now: a.at })
+      else await dismissReminder(a.id, a.at)
     }
+    check()
+    // A failed op leaves this action durable for the next foreground/background pass.
+    container.ackAction(a.id, a.at)
   }
   return actions.length
 }
@@ -66,18 +83,42 @@ export function shareTask(share: QueuedShare): { title: string; description: str
 }
 
 /** Turns the shares that arrived since the last call into Inbox tasks, with their files. */
-export async function applyQueuedShares(): Promise<string[]> {
+let drainingShares: Promise<string[]> | null = null
+
+export function applyQueuedShares(): Promise<string[]> {
+  drainingShares ??= drainShares().finally(() => { drainingShares = null })
+  return drainingShares
+}
+
+async function drainShares(): Promise<string[]> {
+  const check = accountWork()
+  await loadEncryptionState()
+  check()
+  const enc = encryptionSnapshot()
+  if (enc.enabled && !enc.unlocked) return []
   const ids: string[] = []
   const shares = container.takeShares()
   const files = shares.some((s) => s.files.length) && (await attachable())
+  check()
   for (const share of shares) {
     const task = shareTask(share)
-    if (!task) continue
+    if (!task) { if (share.id) container.ackShare(share.id); continue }
     const named = share.files.length && !files ? fileNames(share.files) : ''
     const description = [task.description, named].filter(Boolean).join('\n\n')
-    const id = await createTask({ title: task.title, description, origin: task.origin ?? undefined })
+    const planned = await planTask({ title: task.title, description, origin: task.origin ?? undefined })
+    check()
+    const id = share.id ?? planned.id
+    // Retrying a share after a failed attachment does not duplicate its task.
+    const existing = await db.tasks.get(id)
+    check()
+    if (!existing) await mutateMany([{ ...planned.change, entityId: id }])
+    check()
     if (share.files.length && files) await attachShared(id, share.files)
-    else for (const f of share.files) container.removeFile(f.path)
+    check()
+    // Files that cannot be attached stay on the device with the queued share for a retry.
+    // A disabled server or an encrypted account must never discard their original bytes.
+    if (share.files.length && !files) continue
+    if (share.id) container.ackShare(share.id)
     ids.push(id)
   }
   void uploadPending().catch(() => undefined)
@@ -109,8 +150,11 @@ export function notificationText(n: AppNotification): { title: string; body: str
  * replay the account's history.
  */
 export async function notifyNew(inFront = AppState.currentState === 'active'): Promise<number> {
+  const check = accountWork()
   const until = await getMeta<number | null>(META_NOTIFIED, null)
+  check()
   const all = await db.notifications.toArray()
+  check()
   const latest = all.reduce((m, n) => Math.max(m, n.createdAt), until ?? 0)
   if (until === null || inFront) {
     if (latest !== until) await setMeta(META_NOTIFIED, latest)
@@ -119,7 +163,9 @@ export async function notifyNew(inFront = AppState.currentState === 'active'): P
   let shown = 0
   for (const n of all.filter((x) => x.createdAt > until && x.readAt === null).sort((a, b) => a.createdAt - b.createdAt)) {
     const text = notificationText(n)
-    if (text && container.notify({ id: n.id, ...text })) shown++
+    check()
+    if (text && (await container.notify({ id: n.id, ...text }))) shown++
+    check()
   }
   if (latest !== until) await setMeta(META_NOTIFIED, latest)
   return shown
@@ -140,7 +186,13 @@ export async function askNotifications(): Promise<void> {
  * the phone queued at start, on coming to the front and when a share arrives, and
  * schedules the background refresh. Returns the stop.
  */
+let stopCurrentDevice = () => {}
+
+/** Stops listeners before sign-out clears keys and queues. In-flight jobs use accountWork. */
+export function stopDevice(): void { stopCurrentDevice() }
+
 export function startDevice(): () => void {
+  stopDevice()
   if (!container.available) return () => {}
   let timer: ReturnType<typeof setTimeout> | null = null
   const publish = () => {
@@ -158,7 +210,7 @@ export function startDevice(): () => void {
   const offChange = (db as unknown as SqliteDatabase).onChange((changed) => {
     if ([...changed].some((s) => WATCHED.has(s))) publish()
   })
-  const offEnc = onEncryptionChange(publish)
+  const offEnc = onEncryptionChange(() => { drain(); publish() })
   // A shared file's bytes go once its row is on the server: after an exchange that sent it.
   let sending = false
   const offSync = onSyncStatus(() => {
@@ -176,5 +228,7 @@ export function startDevice(): () => void {
   publish()
   container.startRefresh()
   void askNotifications().catch(() => undefined)
-  return () => { offChange(); offEnc(); offSync(); offShare(); offAction(); sub.remove(); clearInterval(tick); if (timer) clearTimeout(timer) }
+  const stop = () => { offChange(); offEnc(); offSync(); offShare(); offAction(); sub.remove(); clearInterval(tick); if (timer) clearTimeout(timer) }
+  stopCurrentDevice = stop
+  return stop
 }

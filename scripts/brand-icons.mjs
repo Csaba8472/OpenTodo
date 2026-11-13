@@ -60,6 +60,7 @@ export const OUTPUTS = [
   // The native shells (brand-mark-tray D3, D4): the iOS app icon, opaque as the App Store
   // requires, and the Android adaptive launcher icon and notification icon as vector drawables.
   { path: 'mobile/ios/OpenTodo/Assets.xcassets/AppIcon.appiconset/AppIcon.png', size: 1024, full: true, opaque: true },
+  { path: 'mobile/app/assets/icon.png', size: 1024, full: true, opaque: true },
   ...['launcher', 'background', 'foreground', 'monochrome', 'notification'].map((android) => ({
     path: `mobile/android/app/src/main/res/drawable/${android === 'notification' ? 'ic_notification' : android === 'launcher' ? 'ic_launcher' : `ic_launcher_${android}`}.xml`,
     android,

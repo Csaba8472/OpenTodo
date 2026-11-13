@@ -23,7 +23,9 @@ targets:
     platform: iOS
     sources:
       - path: OpenTodo
-      - path: Shared
+      # The helpers the widget and the share extension share live with the native app's
+      # extensions since native-app-handover 1.2; the shell builds them from there.
+      - path: ../app/targets/_shared
     info:
       path: OpenTodo/Info.plist
       properties:
@@ -49,6 +51,8 @@ targets:
           - CFBundleURLName: app.opentodo
             CFBundleURLSchemes: [opentodo]
         BGTaskSchedulerPermittedIdentifiers: [app.opentodo.refresh]
+        # The shell's last release (native-app-handover D7): OPENTODO_HANDOVER=YES.
+        OpenTodoHandover: $(OPENTODO_HANDOVER)
         UIBackgroundModes: [fetch]
         # No WKAppBoundDomains here (ios-bridge-portable): the key alone, even with a
         # placeholder host, switches off the bridge's script and message handler on
@@ -61,6 +65,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.open-todo.ios
         INFOPLIST_FILE: OpenTodo/Info.plist
+        OPENTODO_HANDOVER: "NO"
         TARGETED_DEVICE_FAMILY: "1,2"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
@@ -102,10 +107,11 @@ targets:
     platform: iOS
     sources:
       - path: OpenTodoWidget
-      - path: Shared/Localizable.xcstrings
-      - path: OpenTodo/WidgetPublication.swift
-      - path: OpenTodo/Store.swift
-      - path: OpenTodo/JSON.swift
+      - path: ../app/targets/widget/TodayWidget.swift
+      - path: ../app/targets/_shared/Localizable.xcstrings
+      - path: ../app/targets/_shared/WidgetPublication.swift
+      - path: ../app/targets/_shared/Store.swift
+      - path: ../app/targets/_shared/JSON.swift
     info:
       path: OpenTodoWidget/Info.plist
       properties:
@@ -130,10 +136,11 @@ targets:
     platform: iOS
     sources:
       - path: OpenTodoShare
-      - path: OpenTodo/ShareInbox.swift
-      - path: OpenTodo/ShareMap.swift
-      - path: OpenTodo/Store.swift
-      - path: OpenTodo/JSON.swift
+      - path: ../app/targets/share/ShareViewController.swift
+      - path: ../app/targets/_shared/ShareInbox.swift
+      - path: ../app/targets/_shared/ShareMap.swift
+      - path: ../app/targets/_shared/Store.swift
+      - path: ../app/targets/_shared/JSON.swift
     info:
       path: OpenTodoShare/Info.plist
       properties:

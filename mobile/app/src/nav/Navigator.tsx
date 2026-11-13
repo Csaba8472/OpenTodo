@@ -4,10 +4,10 @@
 // (capture, the date sheet, the pickers, a task's menu) as native form sheets with detents.
 import { createNativeBottomTabNavigator, type NativeBottomTabIcon } from '@react-navigation/bottom-tabs/unstable'
 import { DarkTheme, DefaultTheme, NavigationContainer, type LinkingOptions, type Theme } from '@react-navigation/native'
-import { createNativeStackNavigator } from '@react-navigation/native-stack'
+import { createNativeStackNavigator, type NativeStackScreenProps } from '@react-navigation/native-stack'
 import { unstable_getMaterialSymbolSourceAsync } from 'expo-symbols'
 import { useEffect, useState } from 'react'
-import { Platform, useColorScheme, type ImageSourcePropType } from 'react-native'
+import { Platform, useColorScheme, useWindowDimensions, type ImageSourcePropType } from 'react-native'
 import { useRead } from '../data/useRead'
 import { BrowseScreen } from '../screens/BrowseScreen'
 import { CaptureSheet } from '../screens/CaptureSheet'
@@ -31,6 +31,9 @@ import { t, useLanguageVersion } from '../ui/i18n'
 import { iconPair, type IconName } from '../ui/Icon'
 import { ToastHost } from '../ui/Toast'
 import { useColors } from '../ui/theme'
+import { TabletLayout } from './TabletLayout'
+import { useTablet } from './tabletContext'
+import { tabletWidth } from './tabletState'
 import type { RootParams, StackParams, TabParams } from './types'
 
 const Root = createNativeStackNavigator<RootParams>()
@@ -57,6 +60,18 @@ function useTabIcons(color: string): Record<string, NativeBottomTabIcon> | null 
 }
 
 /** One tab's stack: its list first, then whatever is pushed from it. */
+function TaskRoute(props: NativeStackScreenProps<StackParams, 'Task'>) {
+  const tablet = useTablet()
+  const id = props.route.params.id
+  const nav = props.navigation
+  useEffect(() => {
+    if (!tablet) return
+    tablet.select(id)
+    if (nav.canGoBack()) nav.goBack()
+  }, [tablet, id, nav])
+  return tablet ? null : <TaskScreen {...props} />
+}
+
 function makeStack(first: keyof StackParams, Component: React.ComponentType, title: () => string) {
   const Stack = createNativeStackNavigator<StackParams>()
   return function TabStack() {
@@ -65,7 +80,7 @@ function makeStack(first: keyof StackParams, Component: React.ComponentType, tit
     return (
       <Stack.Navigator screenOptions={{ headerLargeTitle: true, headerTintColor: c.accent, headerTitleStyle: { color: c.text }, headerLargeTitleStyle: { color: c.text }, headerShadowVisible: false, headerStyle: { backgroundColor: c.bg }, headerLargeStyle: { backgroundColor: c.bg }, contentStyle: { backgroundColor: c.bg } }}>
         <Stack.Screen component={Component} name={first} options={{ title: title() }} />
-        <Stack.Screen component={TaskScreen} name="Task" options={{ title: '', headerLargeTitle: false }} />
+        <Stack.Screen component={TaskRoute} name="Task" options={{ title: '', headerLargeTitle: false }} />
         <Stack.Screen component={ProjectScreen} name="Project" options={({ route }) => ({ title: route.params.name })} />
         <Stack.Screen component={LabelScreen} name="Label" options={({ route }) => ({ title: route.params.name })} />
         <Stack.Screen component={ViewScreen} name="View" options={({ route }) => ({ title: route.params.name })} />
@@ -86,12 +101,13 @@ const SearchStack = makeStack('Search', SearchScreen, () => t('Search'))
 
 function TabsScreen() {
   const c = useColors()
+  const tablet = useTablet()
   const icons = useTabIcons(c.text)
   const inbox = useRead(inboxList, TASK_STORES, 'inbox-count')?.length ?? 0
   useLanguageVersion()
   if (!icons) return null
   return (
-    <Tabs.Navigator screenOptions={{ tabBarActiveTintColor: c.accent, tabBarActiveIndicatorColor: c.chip, tabBarStyle: { backgroundColor: c.bg }, tabBarLabelVisibilityMode: 'labeled' }}>
+    <Tabs.Navigator screenOptions={{ tabBarActiveTintColor: c.accent, tabBarActiveIndicatorColor: c.chip, tabBarStyle: { backgroundColor: c.bg, display: tablet ? 'none' : 'flex' }, tabBarLabelVisibilityMode: 'labeled' }}>
       <Tabs.Screen component={TodayStack} name="TodayTab" options={{ title: t('Today'), tabBarIcon: icons.TodayTab }} />
       <Tabs.Screen component={InboxStack} name="InboxTab" options={{ title: t('Inbox'), tabBarIcon: icons.InboxTab, tabBarBadge: inbox || undefined }} />
       <Tabs.Screen component={UpcomingStack} name="UpcomingTab" options={{ title: t('Upcoming'), tabBarIcon: icons.UpcomingTab }} />
@@ -101,18 +117,32 @@ function TabsScreen() {
   )
 }
 
+function AdaptiveTabs() {
+  const { width } = useWindowDimensions()
+  return tabletWidth(Platform.OS, Platform.OS === 'ios' && Platform.isPad, width)
+    ? <TabletLayout><TabsScreen /></TabletLayout>
+    : <TabsScreen />
+}
+
 const SHEET = { presentation: 'formSheet', sheetGrabberVisible: true, headerShown: false } as const
 
 /**
- * What the widget and the notifications open (native-app-handover): a task over Today, the
- * capture sheet, or Today. `opentodo://signed-in` is sign-in's own, read before this mounts.
+ * What the widget, the notifications and the share extension open (native-app-handover): a
+ * task over Today, the capture sheet, Today, or the Inbox. `opentodo://signed-in` is
+ * sign-in's own, read before this mounts.
  */
 export const LINKING: LinkingOptions<RootParams> = {
   prefixes: ['opentodo://'],
   // The typed config has no initialRouteName under a tab; it keeps Today under a linked task.
   config: {
     screens: {
-      Tabs: { screens: { TodayTab: { initialRouteName: 'Today', screens: { Today: 'today', Task: 'task/:id' } } } },
+      Tabs: {
+        screens: {
+          TodayTab: { initialRouteName: 'Today', screens: { Today: 'today', Task: 'task/:id' } },
+          // The share extension opens the app here; its share is in the Inbox by then.
+          InboxTab: { screens: { Inbox: 'share' } },
+        },
+      },
       Capture: 'add',
     },
   } as LinkingOptions<RootParams>['config'],
@@ -126,7 +156,7 @@ export function Navigator() {
   return (
     <NavigationContainer linking={LINKING} theme={theme}>
       <Root.Navigator screenOptions={{ headerShown: false }}>
-        <Root.Screen component={TabsScreen} name="Tabs" />
+        <Root.Screen component={AdaptiveTabs} name="Tabs" />
         <Root.Screen component={CaptureSheet} name="Capture" options={{ ...SHEET, sheetAllowedDetents: [0.5, 1], sheetInitialDetentIndex: 0 }} />
         <Root.Screen component={WhenSheet} name="When" options={{ ...SHEET, sheetAllowedDetents: 'fitToContents' }} />
         <Root.Screen component={ChooseSheet} name="Choose" options={{ ...SHEET, sheetAllowedDetents: [0.6, 1] }} />

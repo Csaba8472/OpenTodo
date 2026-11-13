@@ -6,6 +6,7 @@ import Foundation
 enum ShareInbox {
     static let fileName = "share.json"
     static let directory = "share"
+    static let nativeDirectory = "share-inbox"
 
     struct File: Codable, Equatable {
         let name: String
@@ -18,6 +19,31 @@ enum ShareInbox {
         let text: String?
         let url: String?
         let files: [File]
+        var id: String? = nil
+    }
+
+    /// Native capture keeps one atomic manifest per share. Files are owned by the
+    /// upload outbox after acknowledgement, so neither enqueue nor ack removes them.
+    static func enqueue(_ entry: Entry) throws {
+        var saved = entry
+        let id = UUID().uuidString.lowercased()
+        saved.id = id
+        let folder = Store.url(nativeDirectory)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try JSONEncoder().encode(saved).write(to: folder.appendingPathComponent("\(id).json"), options: .atomic)
+    }
+
+    static func queued() -> [Entry] {
+        let files = (try? FileManager.default.contentsOfDirectory(at: Store.url(nativeDirectory), includingPropertiesForKeys: nil)) ?? []
+        return files.sorted { $0.lastPathComponent < $1.lastPathComponent }.compactMap { url in
+            guard url.pathExtension == "json", let data = try? Data(contentsOf: url) else { return nil }
+            return try? JSONDecoder().decode(Entry.self, from: data)
+        }
+    }
+
+    static func acknowledge(_ id: String) {
+        guard UUID(uuidString: id) != nil else { return }
+        Store.remove("\(nativeDirectory)/\(id).json")
     }
 
     static func read() -> Entry? {
@@ -72,6 +98,7 @@ enum ShareInbox {
     /// Empties the container once the capture screen has the files.
     static func clear() {
         Store.remove(fileName)
+        Store.remove(nativeDirectory)
         try? FileManager.default.removeItem(at: Store.url(directory))
     }
 }

@@ -6095,6 +6095,9 @@
   "Everything you can see as one JSON file, including the Trash.": [
     "web/src/lib/settingsCopy.ts"
   ],
+  "Everything you changed here is on your server. After the update, sign in once more and your tasks are there.": [
+    "web/src/app/ShellHandover.tsx"
+  ],
   "Everything you see is stored on this device and on your server.": [
     "web/src/lib/settingsCopy.ts"
   ],
@@ -11394,7 +11397,8 @@
     "web/src/app/settingsIndex.ts"
   ],
   "OK": [
-    "web/src/app/NotificationsSettings.tsx"
+    "web/src/app/NotificationsSettings.tsx",
+    "web/src/app/ShellHandover.tsx"
   ],
   "Objective": [
     "web/src/app/objectives/ObjectiveCards.tsx"
@@ -17486,6 +17490,9 @@
   ],
   "The next action of every project, by context.": [
     "web/src/lib/method/vocabulary.json"
+  ],
+  "The next update is the new OpenTodo app": [
+    "web/src/app/ShellHandover.tsx"
   ],
   "The note goes to the Trash; Undo brings it back": [
     "web/src/app/notes/NoteRow.tsx"

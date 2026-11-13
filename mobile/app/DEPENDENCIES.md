@@ -52,4 +52,13 @@ Every package in `package.json`, with the reason it is there (OpenSpec change `n
 - `eslint-plugin-react-hooks`: the Rules of Hooks.
 - `@testing-library/react-native`: component tests of the screens on Linux (everyday D9).
 - `fake-indexeddb`: IndexedDB in Node for the adapter's conformance suite (`test/storage`), which runs every scenario on Dexie, as the web does, and on the adapter. 6.2.6, the newest release at least 14 days old (web has 6.2.7).
+- `@bacons/apple-targets`: the config plugin that adds the iOS widget and share extension (`targets/`) to the generated Xcode project with their App Group (native-app-handover D1); build time only, nothing of it ships in the app. 5.0.0 (2026-07-17).
 - `@babel/plugin-transform-async-to-generator`: async functions as generators driven by the global Promise (`babel.config.js`), so the adapter's transaction zone follows an `await` on Hermes (design D4). Already installed by Expo's preset; named here because `babel.config.js` loads it.
+
+## iPad split-view build
+
+The existing pinned `react-native-screens` 4.30.1 supplies the iPad split view. `app.config.ts` enables its Gamma iOS sources; otherwise the package links placeholder split classes. The prebuild also applies a guarded initial-mount fix: initialize the column controllers immediately when the split controller is created, since its first mounting notification can precede that creation and leave a blank screen. The simulator layout flow exercises this path after sign-in. Recheck and remove the patch when upgrading the package; an unrecognized source anchor fails prebuild. No new runtime dependency is added.
+
+## Native integration
+
+The in-repo shared-container module uses the system notification, App Group, WidgetKit, drag, pointer and keyboard APIs on iOS. Android uses AndroidX Core KTX 1.16.0 and WorkManager KTX 2.10.5 for notification helpers and durable hourly/notification-action jobs; WorkManager has no Google Play Services requirement. The dependency-tree check refuses Firebase and Google Play Services. `scripts/scene-handover.js` adds the restored SwiftUI-session handover and starts the JavaScript runtime when iOS launches a refresh without a scene; both are generated from app.config.ts.

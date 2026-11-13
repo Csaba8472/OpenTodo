@@ -62,12 +62,19 @@ final class Bridge: NSObject, WKScriptMessageHandlerWithReply {
         self.actions = actions
     }
 
-    /// The capabilities this shell offers, in the contract's names.
-    static func capabilities(biometric: Bool, share: Bool) -> [String] {
+    /// The capabilities this shell offers, in the contract's names. `handover` only in the
+    /// shell's last release (native-app-handover D7: the `OPENTODO_HANDOVER` build setting).
+    static func capabilities(biometric: Bool, share: Bool, handover: Bool = Bridge.handoverBuild) -> [String] {
         var caps = ["reminders", "widgets"]
         if share { caps += ["share", "links", "obsidian-links", "system-bars"] }
         if biometric { caps.append("biometric") }
+        if handover { caps.append("handover") }
         return caps
+    }
+
+    /// Whether this build is the shell's last release (Info.plist `OpenTodoHandover`).
+    nonisolated static var handoverBuild: Bool {
+        (Bundle.main.object(forInfoDictionaryKey: "OpenTodoHandover") as? String) == "YES"
     }
 
     func install(into controller: WKUserContentController, app: String, capabilities: [String]) {

@@ -1,0 +1,14 @@
+# The 1.x app persists its server through the real connection screen.
+appId: app.open-todo.ios
+---
+- stopApp
+- clearState
+- clearKeychain
+- launchApp
+- tapOn: https://todo.example.com
+- waitForAnimationToEnd
+- inputText: ${SERVER}
+- extendedWaitUntil:
+    visible: ${SERVER}
+    timeout: 5000
+- tapOn: Connect

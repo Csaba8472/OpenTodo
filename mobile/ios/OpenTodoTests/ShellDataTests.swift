@@ -179,6 +179,23 @@ final class ShareInboxTests: XCTestCase {
         XCTAssertTrue(message.contains("opentodo-files"))
     }
 
+    func testNativeSharesRemainQueuedIndependentlyAndAckKeepsUploadBytes() throws {
+        ShareInbox.clear()
+        defer { ShareInbox.clear() }
+        let path = "\(ShareInbox.directory)/offline.txt"
+        let file = Store.url(path)
+        try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("offline bytes".utf8).write(to: file)
+        try ShareInbox.enqueue(.init(title: "First", text: nil, url: nil, files: [.init(name: "offline.txt", type: "text/plain", path: path)]))
+        try ShareInbox.enqueue(.init(title: "Second", text: "saved while locked", url: nil, files: []))
+        let queued = ShareInbox.queued()
+        XCTAssertEqual(Set(queued.compactMap(\.title)), Set(["First", "Second"]))
+        let first = try XCTUnwrap(queued.first { $0.title == "First" }?.id)
+        ShareInbox.acknowledge(first)
+        XCTAssertEqual(ShareInbox.queued().map(\.title), ["Second"])
+        XCTAssertEqual(try Data(contentsOf: file), Data("offline bytes".utf8))
+    }
+
     func testMissingFilesAreNothingToHandOver() {
         XCTAssertNil(ShareInbox.message(ShareInbox.Entry(title: nil, text: "t", url: nil, files: [.init(name: "gone.txt", type: "text/plain", path: "share/gone.txt")])))
     }
@@ -231,7 +248,8 @@ final class BridgeTests: XCTestCase {
     }
 
     func testCapabilitiesFollowTheDevice() {
-        XCTAssertEqual(Bridge.capabilities(biometric: false, share: true), ["reminders", "widgets", "share", "links", "obsidian-links", "system-bars"])
+        XCTAssertEqual(Bridge.capabilities(biometric: false, share: true, handover: false), ["reminders", "widgets", "share", "links", "obsidian-links", "system-bars"])
+        XCTAssertEqual(Bridge.capabilities(biometric: false, share: true, handover: true).last, "handover")
         XCTAssertTrue(Bridge.capabilities(biometric: true, share: true).contains("biometric"))
     }
 

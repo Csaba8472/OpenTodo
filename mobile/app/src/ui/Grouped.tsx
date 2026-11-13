@@ -1,5 +1,5 @@
 // Inset grouped lists (Browse, Settings; design D6): a heading over a card of rows.
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { Icon, type IconName } from './Icon'
 import { useColors, type } from './theme'
@@ -18,14 +18,17 @@ export function Row({ icon, label, detail, onPress, tint, depth = 0, last, chevr
   icon?: IconName; label: string; detail?: string; onPress?(): void; tint?: string; depth?: number; last?: boolean; chevron?: boolean; right?: ReactNode
 }) {
   const c = useColors()
+  const [hovered, setHovered] = useState(false)
   return (
     <Pressable
       accessibilityLabel={detail ? `${label}, ${detail}` : label}
       accessibilityRole={onPress ? 'button' : 'text'}
       android_ripple={onPress ? { color: c.field } : undefined}
       disabled={!onPress}
+      onHoverIn={() => setHovered(true)}
+      onHoverOut={() => setHovered(false)}
       onPress={onPress}
-      style={({ pressed }) => [styles.row, { paddingLeft: 16 + depth * 18, backgroundColor: pressed ? c.field : 'transparent' }]}
+      style={({ pressed }) => [styles.row, { paddingLeft: 16 + depth * 18, backgroundColor: pressed || (hovered && !!onPress) ? c.field : 'transparent' }]}
     >
       {icon && <Icon color={tint ?? c.accent} name={icon} />}
       <View style={[styles.body, !last && { borderBottomColor: c.separator, borderBottomWidth: StyleSheet.hairlineWidth }]}>

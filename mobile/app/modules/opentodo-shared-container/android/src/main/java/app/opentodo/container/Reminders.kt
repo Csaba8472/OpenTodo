@@ -202,6 +202,7 @@ class NotificationActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val id = intent.getStringExtra("id") ?: return
         val action = intent.getStringExtra("action")?.takeIf { ReminderSchedule.isAction(it) } ?: return
+        if (Scheduler.find(context, id) == null) return
         val now = System.currentTimeMillis()
         NotificationManagerCompat.from(context).cancel(Notifier.notificationId(id))
         if (action == "snooze") Scheduler.snooze(context, id, now)

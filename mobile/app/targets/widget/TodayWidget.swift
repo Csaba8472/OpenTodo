@@ -2,8 +2,10 @@ import SwiftUI
 import WidgetKit
 
 /// The Today widget (ios-shell design D8): today's and overdue open tasks from the last
-/// publication, the count in the header, the update time in the footer, and counts only
-/// when the account is locked. It reads the App Group file and never makes a request.
+/// publication, the count in the header, and counts only when the account is locked. The
+/// update time shows once the publication is more than an hour old (native-app-handover D2),
+/// so a widget the app has not refreshed says so. It reads the App Group file and never
+/// makes a request; the web-view app and the native app both publish it.
 struct TodayEntry: TimelineEntry {
     let date: Date
     let publication: WidgetPublication.Publication?
@@ -25,8 +27,15 @@ struct TodayProvider: TimelineProvider {
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<TodayEntry>) -> Void) {
-        // Reloaded whenever the app publishes; no timeline of its own.
-        completion(Timeline(entries: [TodayEntry(date: Date(), publication: WidgetPublication.load())], policy: .never))
+        // Reloaded whenever the app publishes; one more entry when the publication turns an
+        // hour old, so the update time appears without a publication.
+        let publication = WidgetPublication.load()
+        var entries = [TodayEntry(date: Date(), publication: publication)]
+        if let at = publication?.updatedAt {
+            let stale = Date(timeIntervalSince1970: at / 1000 + WidgetPublication.staleAfter)
+            if stale > Date() { entries.append(TodayEntry(date: stale, publication: publication)) }
+        }
+        completion(Timeline(entries: entries, policy: .never))
     }
 }
 
@@ -41,6 +50,7 @@ struct TodayWidgetView: View {
     private var updated: String {
         guard let at = entry.publication?.updatedAt, at > 0 else { return "" }
         let date = Date(timeIntervalSince1970: at / 1000)
+        guard entry.date.timeIntervalSince(date) >= WidgetPublication.staleAfter else { return "" }
         return String(localized: "Updated \(date.formatted(date: .omitted, time: .shortened))")
     }
 

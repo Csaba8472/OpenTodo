@@ -5,10 +5,11 @@
 import { syncNow } from '@shared/sync'
 import type { Task } from '@shared/types'
 import { FlashList } from '@shopify/flash-list'
-import { useNavigation, type NavigationProp } from '@react-navigation/native'
+import { useFocusEffect, useNavigation, type NavigationProp } from '@react-navigation/native'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import * as Haptics from 'expo-haptics'
 import { LayoutAnimation, Pressable, StyleSheet, Text, View } from 'react-native'
+import { useTablet } from '../nav/tabletContext'
 import { moveTask, moveTaskBy } from '@shared/move'
 import { complete, move, schedule, trash } from '../data/actions'
 import { useLookups } from '../data/lookups'
@@ -45,6 +46,7 @@ export interface TaskListProps {
 
 export function TaskList(p: TaskListProps) {
   const c = useColors()
+  const tablet = useTablet()
   const nav = useNavigation<NavigationProp<StackParams & RootParams>>()
   const pickers = usePickers()
   const { projects } = useLookups()
@@ -110,10 +112,22 @@ export function TaskList(p: TaskListProps) {
     void moveTask(task.id, { parent_id: task.parent_id ?? null, section_id: section.key === 'none' ? null : section.key, at: to })
   }, [p.sections])
 
+  useFocusEffect(useCallback(() => {
+    if (!tablet) return
+    const current = {
+      ids: p.sections?.flatMap((s) => s.tasks.map((t) => t.id)) ?? [],
+      context: { today: p.hideToday, projectId: p.projectId },
+      complete: (id: string) => { const task = p.sections?.flatMap((s) => s.tasks).find((t) => t.id === id); if (task) void onAction(task, 'complete') },
+    }
+    tablet.list.current = current
+    return () => { if (tablet.list.current === current) tablet.list.current = null }
+  }, [tablet, p.sections, p.hideToday, p.projectId, onAction]))
+
   const onPress = useCallback((task: Task) => {
     if (p.selecting) p.onToggle?.(task.id)
+    else if (tablet) tablet.select(task.id)
     else nav.navigate('Task', { id: task.id })
-  }, [nav, p])
+  }, [nav, p, tablet])
   const onLongPress = useCallback((task: Task) => nav.navigate('TaskMenu', { id: task.id, inbox: p.inbox }), [nav, p.inbox])
 
   const refresh = async () => {
@@ -148,7 +162,7 @@ export function TaskList(p: TaskListProps) {
             onPress={onPress}
             projectId={p.projectId ?? null}
             projects={projects}
-            selected={p.selected?.has(item.task.id)}
+            selected={p.selecting ? p.selected?.has(item.task.id) : tablet?.selected === item.task.id}
             selecting={p.selecting}
             task={item.task}
             today={p.today}

@@ -1,0 +1,14 @@
+appId: ${APP_ID}
+---
+- launchApp
+- extendedWaitUntil:
+    visible: Water the plants
+    timeout: 20000
+- swipe:
+    from:
+      text: Water the plants
+    direction: RIGHT
+- extendedWaitUntil:
+    notVisible: Water the plants
+    timeout: 10000
+- pressKey: Home

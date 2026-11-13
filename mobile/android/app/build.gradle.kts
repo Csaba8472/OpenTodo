@@ -15,6 +15,9 @@ val versionParts = Regex("""^(\d+)\.(\d+)\.(\d+)""").find(appVersion)?.destructu
 // and location reminders from the bridge until Play approves the background-location declaration.
 // The APK for GitHub and F-Droid is built without it, so its reproducible build stays as it was.
 val playBuild = providers.gradleProperty("opentodo.play").orNull == "true"
+// The shell's last release (native-app-handover D7): -Popentodo.handover=true lists the `handover`
+// capability, so the web app sends its outbox and says once that the next update is the new app.
+val handoverBuild = providers.gradleProperty("opentodo.handover").orNull == "true"
 
 // Release signing only when CI provides a keystore (secrets); never committed.
 val keystoreProps = Properties().apply {
@@ -36,6 +39,7 @@ android {
         versionName = appVersion
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("boolean", "PLAY_BUILD", playBuild.toString())
+        buildConfigField("boolean", "HANDOVER", handoverBuild.toString())
     }
 
     // Only the Play build overlays the release manifest (tools:node="remove" on the location permissions).

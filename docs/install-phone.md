@@ -11,7 +11,9 @@ order: 21
 
 <picture><source srcset="images/mobile-today-dark.webp" media="(prefers-color-scheme: dark)"><img src="images/mobile-today-light.webp" alt="OpenTodo installed on a phone, showing the Today list full screen without browser bars."></picture>
 
-Sign in once in the browser first, at your server's `https://` address; then add the app to your home screen. The general picture, and the steps for computers, are in [Installing the app](install-app.md).
+OpenTodo has a browser-installed app and store apps. The native 2.0 app is in trial; its [app guide](app.md) describes the five destinations, offline lists and capture. The current store releases use the web-view apps until the production switch.
+
+For the browser-installed app, sign in once in the browser first, at your server's `https://` address; then add the app to your home screen. See [Installing the app](install-app.md) for computers.
 
 Once installed, the round **+** at the bottom right adds a task, and the menu button at the top left opens a drawer with your projects, labels and views.
 
@@ -45,4 +47,4 @@ Instead of installing from the browser, you can install the **OpenTodo** app fro
 
 ## The iOS app
 
-The **OpenTodo** app for iPhone and iPad is in the [App Store](https://apps.apple.com/us/app/opentodo/id6832200428), as a first release; with a Mac and Xcode you can also build it yourself. Enter your server's address on its first screen. It appears in the share sheet and adds a Today widget, Face ID unlock of an encrypted account and reminders scheduled on the phone. Unlike the installed web app, the app from the App Store needs the network to start. See [The iOS app](ios-app.md).
+The **OpenTodo** app for iPhone and iPad uses the [App Store](https://apps.apple.com/us/app/opentodo/id6832200428) record, with native 2.0 trial builds in TestFlight. In 2.0, enter your server address, choose **Continue** and sign in through the system sheet; tasks then stay available offline. It adds widgets, sharing, local reminders and biometric unlock. Updates from 1.x ask for one sign-in. See [The iOS app](ios-app.md); the [1.x guide](ios-webview-app.md) covers the current web-view release and its network requirements.

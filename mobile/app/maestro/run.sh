@@ -39,7 +39,8 @@ log="$data/server.log"
 
 OPENTODO_ADDR="127.0.0.1:$port" OPENTODO_DATA_DIR="$data" OPENTODO_BASE_URL="$server" "$root/bin/opentodo" > "$log" 2>&1 &
 pid=$!
-trap 'kill $pid 2>/dev/null || true; rm -rf "$data"' EXIT
+share_page_pid=
+trap '[ -z "$share_page_pid" ] || kill "$share_page_pid" 2>/dev/null || true; kill $pid 2>/dev/null || true; rm -rf "$data"' EXIT
 for _ in $(seq 50); do curl -fs "$server/api/v1/health" > /dev/null && break; sleep 0.2; done
 curl -fs -c "$data/cookies" -X POST "$server/api/v1/auth/register" -H 'Content-Type: application/json' -H "Origin: $server" \
   -d "{\"email\":\"$email\",\"name\":\"Tester\",\"password\":\"$password\"}" > /dev/null
@@ -59,6 +60,7 @@ for f in "${@:-*.yaml}"; do
     case $(basename "$g") in
       e2ee-unlock.yaml) encrypted=true ;;
       widget.yaml) widget=true ;;
+      reminder.yaml) if [ "$platform" = android ]; then flows+=("$g"); else flows+=("ios/reminder.yaml"); fi ;;
       share.yaml) share=true ;;
       widget-refresh.yaml|share-picture.yaml|share-check.yaml|biometric.yaml|biometric-changed.yaml) ;;
       *) flows+=("$g") ;;
@@ -67,8 +69,10 @@ for f in "${@:-*.yaml}"; do
 done
 passphrase='correct horse battery staple'
 run() {
+  local device=(test --platform "$platform")
+  if [ -n "${SIM:-}" ]; then device=(--device "$SIM" "${device[@]}"); fi
   # --platform: a simulator and an emulator may run on the same machine.
-  maestro test --platform "$platform" -e APP_ID="$app_id" -e SERVER="$server" -e EMAIL="$email" -e PASSWORD="$password" \
+  maestro "${device[@]}" -e APP_ID="$app_id" -e SERVER="$server" -e EMAIL="$email" -e PASSWORD="$password" \
     -e TOKEN="$token" -e PASSPHRASE="$passphrase" "$@" || { tail -50 "$log"; exit 1; }
 }
 # SCREENS=<dir>: every screen's screenshots and accessibility check instead (screens.sh).
@@ -77,9 +81,9 @@ if [ -n "${SCREENS:-}" ]; then
   exit 0
 fi
 [ ${#flows[@]} -eq 0 ] || run "${flows[@]}"
-# The flows around the app (the widget, the share sheet): Android only until the iOS
-# extensions join the app.
-[ "$platform" = android ] && . ./device.sh
+if [ "${TABLET_TESTS:-0}" = 1 ]; then ../uitests/run.sh "$SIM"; fi
+# The flows around the app use the platform's widget, share and background APIs.
+if [ "$platform" = android ]; then . ./device.sh; else . ./ios-device.sh; fi
 if $widget && [ "$platform" = android ]; then
   add_widget
   run widget.yaml
@@ -99,6 +103,8 @@ if $share && [ "$platform" = android ]; then
   run share-picture.yaml
   run share-check.yaml
 fi
+if $widget && [ "$platform" = ios ]; then ios_widget; fi
+if $share && [ "$platform" = ios ]; then ios_share_link; fi
 if $encrypted; then
   (cd "$root" && go run ./mobile/app/maestro/keyrecord "$passphrase") > "$data/keys.json"
   curl -fs -b "$data/cookies" -X PUT "$server/api/v1/encryption/keys" -H 'Content-Type: application/json' -H "Origin: $server" \
@@ -117,5 +123,16 @@ if $encrypted; then
     run biometric-changed.yaml
     stop_touching
     clear_biometrics
+  else
+    # Face ID unlock only: the simulator's enrollment toggle keeps the biometric set the
+    # Keychain binds the key to (.biometryCurrentSet), so a changed enrollment cannot be
+    # simulated here; the fallback it triggers is the shared code biometric-changed.yaml
+    # covers on the emulator, with a real second fingerprint.
+    trap 'ios_stop_touching; ios_enroll 0; kill $pid 2>/dev/null || true; rm -rf "$data"' EXIT
+    ios_enroll 1
+    ios_start_touching
+    run biometric.yaml
+    ios_stop_touching
+    ios_enroll 0
   fi
 fi

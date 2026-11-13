@@ -220,12 +220,14 @@ test('the store icons outside the template folders are brand outputs, in the siz
 
 test('every icon or logo file under the app and deploy folders is a brand output', () => {
   const outputs = new Set(OUTPUTS.map((o) => o.path))
-  const skip = new Set(['node_modules', 'build', 'dist', '.gradle', '.git', 'screenshots'])
+  const skip = new Set(['node_modules', 'build', 'dist', '.gradle', '.git', 'screenshots', '.expo'])
   const strays = []
   const walk = (dir) => {
     if (!existsSync(join(ROOT, dir))) return
     for (const e of readdirSync(join(ROOT, dir), { withFileTypes: true })) {
       const rel = `${dir}/${e.name}`
+      // Expo prebuild output is ignored and derives its icons from app.config.ts.
+      if (rel === 'mobile/app/ios' || rel === 'mobile/app/android') continue
       if (e.isDirectory()) { if (!skip.has(e.name)) walk(rel); continue }
       if (/(^|[-_/.])(icon|logo|favicon|apple-touch|pwa)[^/]*\.(png|jpe?g|svg|webp|ico)$/i.test(rel) && !outputs.has(rel)) strays.push(rel)
     }

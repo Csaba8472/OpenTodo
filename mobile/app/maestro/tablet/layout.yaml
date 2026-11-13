@@ -1,0 +1,36 @@
+# Regular-width iPad: sidebar, list and task detail remain visible together. Run with
+# SIM=<iPad UDID> run.sh tablet/layout.yaml. Capture and editing use the existing native sheets.
+appId: ${APP_ID}
+---
+- runScript:
+    file: ../scripts/create-project.js
+    env:
+      NAME: Travel
+- runScript:
+    file: ../scripts/create-task.js
+    env:
+      TITLE: Plan the trip
+- runFlow: ../common/sign-in.yaml
+- assertVisible: Select a task to see its details here.
+- tapOn:
+    text: Plan the trip
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible: Title
+    timeout: 10000
+- assertNotVisible: Select a task to see its details here.
+- assertVisible: Inbox
+- assertVisible: Upcoming
+- tapOn:
+    text: Title
+- inputText: ' soon'
+- hideKeyboard
+- tapOn: Add task
+- assertVisible: Add a task.*
+- inputText: Pack the bags
+- tapOn: Add
+- tapOn: Close
+- extendedWaitUntil:
+    visible: Pack the bags
+    timeout: 10000
+- takeScreenshot: ipad-regular

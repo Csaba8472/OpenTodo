@@ -2,46 +2,38 @@
 
 ## Why
 
-A Focus session runs while the phone is in a pocket or face down on the desk. Today the only way to see how much time is left is to unlock the phone and open the app, which defeats the point of focusing. Phone-native timers solve this with the lock screen: a Live Activity and the Dynamic Island on iPhone, and an ongoing notification with a running clock on Android. The research names Live Activities for Focus timers as one of the things a web app can never do on iOS (research §3.1, "OS-Edge Capture Surfaces", and Phase 3 item 2). A shell is what makes them possible.
+A Focus session runs while the phone is in a pocket or face down on the desk. Today the only way to see how much time is left is to unlock the phone and open the app, which defeats the point of focusing. Phone-native timers solve this with the lock screen: a Live Activity and the Dynamic Island on iPhone, and an ongoing notification with a running clock on Android. The research names Live Activities for Focus timers as one of the things a web app can never do on iOS (research §3.1, "OS-Edge Capture Surfaces", and Phase 3 item 2). The native app makes these system surfaces possible.
 
-There is a second, quieter gap. In the shells, a session that ends while the app is in the background says nothing. focus-mode's "Session end notification" goes through the browser's service worker, and a `WKWebView` (and Android's `WebView`) has no notification API.
+There is a second, quieter gap. In the current web-view apps, a session that ends while the app is in the background says nothing. focus-mode's "Session end notification" goes through the browser's service worker, and a `WKWebView` (and Android's `WebView`) has no notification API.
 
 ## What Changes
 
-- **A new bridge capability, `focus`**, with one method, `publishFocus(json)`. The web app hands the shell the running session's state whenever it changes: phase, timing, cycle, and the task title only where reminders may carry titles. "Nothing runs" is also published.
-- **iOS: a Live Activity** on the lock screen and in the Dynamic Island. It shows the task, the phase ("Work · 2 of 4", "Short break", "Paused") and a clock that the system advances by itself (counting down for timed phases, up for Flowtime). Tapping it opens the Focus screen, and **Pause** / **Resume** links open the app on the action. The activity marks itself stale at the planned end and then reads "Session done". A local notification at the planned end replaces the service-worker notification.
-- **Android: an ongoing notification** on a quiet "Focus" channel with the same content and a system chronometer, Pause / Resume actions that open the app on the action, and an exact alarm for the "Session done" notification.
-- **The web app** publishes on every transition, re-publishes on start when a session is stored, publishes "nothing runs" on sign-out and when the server is changed, and handles `/focus?action=pause|resume` as it handles reminder actions. In a shell that lists `focus` it does not attempt the service-worker notification, because the shell owns it.
-- No setting in OpenTodo. iOS (Settings ▸ OpenTodo ▸ Live Activities) and Android (the "Focus" notification channel) already let the user turn it off.
+- Bring the shared Focus modes and transition semantics into a native screen/controller, since the native app has no Focus screen to publish from yet. Keep its state local and write time entries through the existing ops.
+- Add `publishFocus(json)` to the native shared-container Expo module and publish full snapshots from that controller.
+- Extend the existing iOS widget target with an ActivityKit Live Activity, lock-screen and Dynamic Island clocks, and Pause/Resume links that open the native Focus screen.
+- Add an Android ongoing notification with a system chronometer and the same actions, plus local session-end notifications and exact-alarm fallback.
+- Keep the web Focus experience and browser notifications unchanged. No web-view bridge, hidden page, new op, route or mandatory environment variable.
 
-Not **BREAKING**. No op, field, route or environment variable. Bridge version 1 gains one capability.
+This change depends on `native-app-handover` and does not reintroduce retired shells.
 
 ## Out of scope
 
 - Push-updated Live Activities (APNs). The timer runs on the system clock, so no updates are needed while the app sleeps (design D2).
-- Buttons that change the session without opening the app. They would need the hidden web run to edit the device's timer state in the background (design D4).
+- Buttons that change the session without opening the app. They would need background runtime access to the device's timer state (design D4).
 - Starting a session from the lock screen, Siri or a widget. `apple-shortcuts` covers opening the app; starting a timer is a later change.
 - Showing another device's session. The timer state stays on the device (focus-mode). `focus-session-readable` makes the running session readable through the API and MCP instead.
 - Android 16 "Live Updates" promoted notifications. They can follow once the platform settles.
 - A watch app.
 
-ROADMAP item advanced: "Next: Native shells" and milestone 0.20 "Everywhere" of the 1.0 plan.
+ROADMAP: native app system integrations after `native-app-handover`.
 
 ## Capabilities
 
-### New Capabilities
-
-None.
-
 ### Modified Capabilities
 
-- `native-shells`: the `focus` capability, the iOS Live Activity and the Android ongoing notification. ADDED requirements only.
-- `focus-mode`: the running session is shown by the shell outside the app, and the shell owns the session-end notification. ADDED requirements only. "Timer state stays on the device" is not modified: the shell is part of the same device, and what it receives is deleted with the rest of the shell's data.
+- `native-app`: the native Focus surface and its system activity/notification, local session-end scheduling and cleanup.
+- `focus-mode`: native publication and action behavior while browser behavior stays unchanged.
 
 ## Impact
 
-- **Data model, sync, op schema:** none. The published state lives only in the shell's private storage and the system's activity or notification.
-- **E2EE:** for an encrypted account no title is handed over. The activity reads "Focus session", the same rule as the reminder schedule (native-shells "Reminders scheduled on the device").
-- **API, CLI, MCP, CalDAV, vault:** none.
-- **Web bundle:** under 1 KB gzip (the publisher and one address action). **Server:** unchanged. **iOS:** an ActivityKit widget extension target, part of the existing widget extension, about 80 KB, system frameworks only. **Android:** one notification channel and a builder, AndroidX only, about 10 KB.
-- **Simple-list users:** nothing new. Nothing appears unless a Focus session is started inside a shell.
+The app, its shared platform-backed Focus controller, Expo module and widget target change. The server, op schema, REST/CLI/MCP, CalDAV and vault do not. Encrypted accounts publish no title. ActivityKit adds about 80 KB and Android system surfaces about 10 KB without a new dependency; the native Focus screen/controller must be measured separately. The browser bundle is unchanged. See design D0 for the required native Focus prerequisite.

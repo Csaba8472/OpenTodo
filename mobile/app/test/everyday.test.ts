@@ -94,6 +94,10 @@ describe('the account key on the phone', () => {
       const stored = JSON.stringify(await db.meta.toArray()) + JSON.stringify([...prefs])
       expect(stored).not.toMatch(/CryptoKey|"k":|"key_ops"/)
 
+      // Foreground/background state reloads keep a key that this process unlocked.
+      expect(await loadEncryptionState()).toMatchObject({ enabled: true, unlocked: true })
+      expect(await currentKey()).toBe(key)
+
       // A cold start: the same database, and the start-up's loadEncryptionState
       // (src/accountSync.ts), which drops the copy in memory as a new process has none.
       resetModuleState()

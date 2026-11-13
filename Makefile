@@ -96,6 +96,7 @@ app:
 	cd mobile/app && npm run typecheck && npm run lint && npm test -- --ci
 	node mobile/app/scripts/shared-modules.mjs --check
 	node mobile/app/scripts/dexie-surface.mjs --check
+	node --test mobile/app/scripts/google-services.test.mjs
 
 ## The Android app (native-shells): unit tests, lint, the AndroidX-only dependency
 ## check, translations, store metadata and a debug APK. Needs JDK 17+ and the
@@ -346,8 +347,14 @@ release-prepare:
 ## CI path filter cases, the shared Go toolchain (go.mod, Dockerfile, CI) and compose defaults;
 ## the Go/TypeScript contract index (docs/contracts.md);
 ## the brand rasters rendered from the current brand.svg (sidebar-v2 D3).
+## The native app's go/no-go evidence (native-app-handover D7, RELEASING.md): the last three
+## nightly runs of the default branch, their app jobs and the app's performance budgets.
+## Needs the GitHub CLI, signed in. APP_GATE_REPO picks another repository.
+app-gate:
+	node scripts/release/app-gate.mjs $(if $(APP_GATE_REPO),--repo $(APP_GATE_REPO))
+
 repo-check:
-	node --test scripts/repo-checks.test.mjs scripts/security-review.test.mjs scripts/brand-icons.test.mjs scripts/contracts.test.mjs scripts/bundle-budget.test.mjs scripts/release/play-upload.test.mjs scripts/release/appstore.test.mjs scripts/release/collect-assets.test.mjs scripts/release/check-public-image.test.mjs scripts/perf/budgets.test.mjs scripts/android-a11y.test.mjs scripts/accessibility.test.mjs scripts/release/accessibilityAudit.test.mjs
+	node --test scripts/repo-checks.test.mjs scripts/security-review.test.mjs scripts/brand-icons.test.mjs scripts/contracts.test.mjs scripts/bundle-budget.test.mjs scripts/release/play-upload.test.mjs scripts/release/app-gate.test.mjs scripts/release/appstore.test.mjs scripts/release/collect-assets.test.mjs scripts/release/check-public-image.test.mjs scripts/perf/budgets.test.mjs scripts/android-a11y.test.mjs scripts/accessibility.test.mjs scripts/release/accessibilityAudit.test.mjs
 
 ## The time benchmark of the performance budgets (docs/performance.md): builds the app,
 ## the server and the 10,000-task account, then measures every server, desktop and

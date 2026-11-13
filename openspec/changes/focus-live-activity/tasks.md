@@ -1,36 +1,28 @@
 # Tasks
 
-Web tasks run `npm test` and `npm run build` in `web/`. iOS tasks run `make ios` on a Mac. Android tasks run `make android`. The server does not change, but `go test ./...` runs in `make check` before the last task. The iOS part needs the widget extension and App Group that `ios-shell` added, and it is easiest to land after `ios-distribution`.
+Depends on `native-app-handover`. Work in the native app, its Expo module and widget target; do not restore shell code or publish from the browser.
 
-## 1. Web app
+## 1. Native Focus and shared contract
 
-- [ ] 1.1 `web/src/lib/shell.ts`: `ShellCapability` gains `focus`, and `OpenTodoShell` gains the optional `publishFocus(json)`. Verified by `shell.test.ts` (no call without the capability).
-- [ ] 1.2 `web/src/lib/focus/shellPublish.ts`: build the payload from `FocusState` and the prefs (`plannedEndAt` for timed phases only, `cycleLength` from the long-break count, the title only when the device option is on and the account is not encrypted). Publish from the transitions in `useFocusTimer.ts`, on start when a row is stored, and `none` on sign-out, on lock, and when no row is stored. Verified by `shellPublish.test.ts` (each transition publishes once, a paused state has no `plannedEndAt`, Flowtime has none, the encrypted account carries no title, sign-out publishes `none` before `clearLocalData`).
-- [ ] 1.3 `/focus?action=pause|resume` in `shellActions.ts`: apply through the Space transition, ignore when already in that state, then remove the parameter. Verified by `shellActions.test.ts` (pause, resume, stale action writes no op).
-- [ ] 1.4 Skip the service-worker session-end notification while the shell lists `focus`. Verified by `useFocusTimer.test.tsx` (no `showNotification` call with the capability, unchanged without it).
-- [ ] 1.5 Shared bridge fixtures: `focus-running.json`, `focus-paused.json`, `focus-flowtime.json`, `focus-none.json`, produced from the web code, plus the two addresses. Verified by `shellBridge.fixture.test.ts`.
+- [ ] 1.1 Add a native Focus screen/controller using the existing shared modes, transitions and preferences. Keep state local and time-entry writes on ops. Verify shared vectors, pause/resume time entries, clock reconciliation and offline/restart behavior in Jest and Maestro.
+- [ ] 1.2 Build the full versioned publication and send it after every transition, restore, lock and sign-out. Verify fields for running/paused/done/none, Flowtime without a planned end and encrypted accounts without titles.
+- [ ] 1.3 Add the Expo module method and shared running/paused/Flowtime/none fixtures. Verify parsing and malformed-version rejection in Jest, Swift and Kotlin.
+- [ ] 1.4 Add the native Focus deep link and apply Pause/Resume through the same controller once, after account readiness. Verify stale actions are no-ops and restored links are not replayed.
 
 ## 2. iOS
 
-- [ ] 2.1 `NSSupportsLiveActivities` in the app's Info.plist. `FocusActivity.swift` holds the `ActivityAttributes` and content state, and parses the publication with junk refused. Verified by `FocusActivityTests` parsing the shared fixtures (each state, unknown `v` refused, a missing `plannedEndAt` gives a count-up).
-- [ ] 2.2 `publishFocus` in `Bridge.swift`: store the last publication in the App Group. Start, update or end the single activity, honour `areActivitiesEnabled`, end any extra activity, and set `staleDate = plannedEndAt` and the dismissal policy (design D2, D7). `focus` is listed in `capabilities`. Verified by `BridgeTests` (capability list) and `FocusActivityTests` (state-to-content mapping, stale date, at most one activity via a fake activity store).
-- [ ] 2.3 Lock screen and Dynamic Island views (compact, minimal, expanded) in `OpenTodoWidget`, with `Text(timerInterval:countsDown:)`, `Text(_:style: .timer)` and the frozen paused time. "Session done" when stale. A Pause/Resume `Link` to `opentodo://focus?action=…`. Verified by the previews building in `make ios`, and by `AppModelTests` mapping `opentodo://focus?action=pause` to `/focus?action=pause`.
-- [ ] 2.4 The local "Session done"/"Break over" notification at `plannedEndAt`, rescheduled on each publication and cancelled on paused, done and none. Verified by `FocusActivityTests` with a fake notification centre.
-- [ ] 2.5 Cleanup in `AppModel.forgetServer` and on the sign-out reset. Verified by `AppModelTests`.
-- [ ] 2.6 Strings ("Focus session", "Work · %d of %d", "Short break", "Long break", "Paused", "Session done", "Break over", "Pause", "Resume") in the String Catalog in en, de, fr, es, it and pt. Verified by `make i18n-check`.
-- [ ] 2.7 Device run: a Pomodoro with the phone locked, Pause from the lock screen, the Dynamic Island on a phone that has one, the stale "Session done", the app killed and reopened. Recorded in the `mobile/README.md` table.
+- [ ] 2.1 Configure NSSupportsLiveActivities through the app config plugin; add ActivityAttributes and reconciliation in the module. Verify stale dates, idempotent update, system opt-out and ending extra activities with a fake activity store.
+- [ ] 2.2 Add lock-screen and compact/minimal/expanded Dynamic Island views to `mobile/app/targets/widget`, with system clocks, frozen pause and stale Session done. Verify the iOS deployment build and native deep links.
+- [ ] 2.3 Schedule/reschedule/cancel the local session-end notification and clean up all stored state on sign-out. Verify fake notification-center tests and account switching.
+- [ ] 2.4 Add the six-language string catalog entries and record real-device locked-phone, Dynamic Island, Pause/Resume, stale state and killed/reopened checks in `mobile/README.md`.
 
 ## 3. Android
 
-- [ ] 3.1 `FocusState.kt` parsing the shared fixtures. Verified by `FocusStateTest`.
-- [ ] 3.2 `publishFocus` in `Bridge.kt`. A "Focus" channel (low importance, no sound), and an ongoing notification with `setUsesChronometer`, `setChronometerCountDown` for timed phases and `setWhen`, plus Pause/Resume actions opening the activity at `/focus?action=…`. The content comes from a pure `FocusNotificationModel`, so it can be tested without a device. Verified by the JVM unit test `FocusNotificationModelTest` (content per state, count-down flag, the action's address, removal on `none`) and an instrumented test in `connectedDebugAndroidTest` posting and removing the notification.
-- [ ] 3.3 Session-end alarm (exact, inexact when denied) that replaces the ongoing notification with "Session done"/"Break over", rescheduled and cancelled as on iOS. Cleanup on server change and sign-out. Verified by `FocusNotificationModelTest` (the alarm time per state, cancelled on paused and none) and the instrumented test.
-- [ ] 3.4 Strings in `values-*/strings.xml` for the six languages. Verified by `make android` (`checkTranslations`).
-- [ ] 3.5 Emulator or device run: a session with the app in the background, Pause from the notification, the session-end notification. Recorded in `mobile/README.md`.
+- [ ] 3.1 Add the fixture-backed state parser and pure ongoing-notification model. Verify phase labels, chronometer direction, elapsed time and content-free action links in JVM tests.
+- [ ] 3.2 Add the quiet Focus channel, single ongoing notification, native intent handling and session-end exact/inexact alarm. Verify posting/removal and denied-alarm fallback in instrumented tests.
+- [ ] 3.3 Extend sign-out cleanup, add translated strings and record background, Pause/Resume and session-end checks on an emulator or device.
 
-## 4. Documentation and release
+## 4. Documentation and checks
 
-- [ ] 4.1 `docs/focus.md`: "On the lock screen" (what the iOS and Android apps show, Pause/Resume opening the app, where to turn it off, titles and encrypted accounts, auto-start waiting until the app runs). Verified by `npm run docs:check`.
-- [ ] 4.2 `docs/ios-app.md`, `docs/android-app.md` and `mobile/README.md`: the `focus` capability, the payload and the cleanup. Verified by `npm run docs:check`.
-- [ ] 4.3 CHANGELOG entry under Unreleased. Verified by `make check`.
-- [ ] 4.4 `npm test`, `npm run build`, `make ios`, `make android`, `make openspec-validate`, `make repo-check` and `make check` pass. Verified by their exit codes.
+- [ ] 4.1 Update `docs/focus.md`, the app guides and `mobile/README.md` with native behavior, privacy, system opt-outs and auto-start waiting for the app. Add a fragment under `changelog.d/Added/`. Verify `make docs` and `make docs-check`.
+- [ ] 4.2 Report measured app/bundle size, run app typecheck/lint/Jest, native builds and flows, `make openspec-validate`, `make repo-check` and `make check`.

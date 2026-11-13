@@ -1,5 +1,8 @@
 // Browse (native-app-everyday D1): the rest, one level down. Projects as a tree, labels,
 // saved views, Notes, the Logbook and Settings.
+import { TabletView } from '../../modules/opentodo-shared-container/TabletView'
+import { move } from '../data/actions'
+import { useTablet } from '../nav/tabletContext'
 import { db } from '@shared/db'
 import { activeLabels } from '@shared/labels'
 import type { Label, Project, View as SavedView } from '@shared/types'
@@ -43,32 +46,43 @@ async function read(): Promise<Browse> {
   }
 }
 
-export function BrowseScreen() {
+export function BrowseScreen({ sidebar = false }: { sidebar?: boolean }) {
   const c = useColors()
   const bottom = useTabBarInset()
   const nav = useNavigation<NavigationProp<StackParams>>()
+  const tablet = useTablet()
+  const go = (name: keyof StackParams, params?: object) => {
+    if (sidebar && tablet) tablet.destination(name, params)
+    else (nav.navigate as (name: string, params?: object) => void)(name, params)
+  }
   const data = useRead(read, ['projects', 'labels', 'views'], 'browse')
   return (
     <ScrollView contentContainerStyle={[styles.page, { paddingBottom: 48 + bottom }]} contentInsetAdjustmentBehavior="automatic" style={{ backgroundColor: c.grouped }}>
+      {sidebar && <Group>
+        <Row icon="today" label={t('Today')} onPress={() => go('Today')} />
+        <Row icon="inbox" label={t('Inbox')} onPress={() => go('Inbox')} />
+        <Row icon="upcoming" label={t('Upcoming')} onPress={() => go('Upcoming')} />
+        <Row icon="search" label={t('Search')} last onPress={() => go('Search')} />
+      </Group>}
       <Group title={t('Projects')}>
         {data?.projects.length ? data.projects.map(({ p, depth }, i) => (
-          <Row depth={depth} icon="project" key={p.id} label={p.name} last={i === data.projects.length - 1} onPress={() => nav.navigate('Project', { id: p.id, name: p.name })} tint={p.color || undefined} />
+          <TabletView key={p.id} projectId={sidebar ? p.id : ''} onTaskDrop={(e) => { void move(e.nativeEvent.taskId, p.id) }}><Row depth={depth} icon="project" label={p.name} last={i === data.projects.length - 1} onPress={() => go('Project', { id: p.id, name: p.name })} tint={p.color || undefined} /></TabletView>
         )) : <Row chevron={false} label={t('No projects yet.')} last />}
       </Group>
       {!!data?.labels.length && (
         <Group title={t('Labels')}>
-          {data.labels.map((l, i) => <Row icon="label" key={l.id} label={l.name} last={i === data.labels.length - 1} onPress={() => nav.navigate('Label', { id: l.id, name: l.name })} tint={l.color || undefined} />)}
+          {data.labels.map((l, i) => <Row icon="label" key={l.id} label={l.name} last={i === data.labels.length - 1} onPress={() => go('Label', { id: l.id, name: l.name })} tint={l.color || undefined} />)}
         </Group>
       )}
       {!!data?.views.length && (
         <Group title={t('Saved views')}>
-          {data.views.map((v, i) => <Row icon="view" key={v.id} label={v.name} last={i === data.views.length - 1} onPress={() => nav.navigate('View', { id: v.id, name: v.name })} />)}
+          {data.views.map((v, i) => <Row icon="view" key={v.id} label={v.name} last={i === data.views.length - 1} onPress={() => go('View', { id: v.id, name: v.name })} />)}
         </Group>
       )}
       <Group>
-        <Row icon="note" label={t('Notes')} onPress={() => nav.navigate('Notes')} />
-        <Row icon="logbook" label={t('Logbook')} onPress={() => nav.navigate('Logbook')} />
-        <Row icon="settings" label={t('Settings')} last onPress={() => nav.navigate('Settings')} />
+        <Row icon="note" label={t('Notes')} onPress={() => go('Notes')} />
+        <Row icon="logbook" label={t('Logbook')} onPress={() => go('Logbook')} />
+        <Row icon="settings" label={t('Settings')} last onPress={() => go('Settings')} />
       </Group>
     </ScrollView>
   )

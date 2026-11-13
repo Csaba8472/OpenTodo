@@ -13,6 +13,7 @@ import { loadRichText, resetRichTextForTests } from '@shared/docfields'
 import * as richtext from '@shared/richtext'
 import { installPlatform, platform } from '@shared/platform'
 import { sqliteDatabase } from '../src/storage/adapter'
+import { TaskDraft } from '../src/data/taskDraft'
 import { nodeSqlite } from './storage/nodeSqlite'
 
 afterEach(() => resetModuleState())
@@ -86,4 +87,28 @@ describe('a task note edited as Markdown', () => {
     expect(row?.description).toBe(edited)
     expect(row?.description).toContain('| Day | Plan |\n| --- | --- |\n| 1 | Forum |')
   })
+})
+
+// Selecting another iPad task removes the current detail before a note debounce or
+// title blur necessarily fires. Both edits must already be represented by ops.
+it('flushes title and notes when task detail unmounts, without waiting for its debounce', async () => {
+  useAdapter()
+  const id = await createTask({ title: 'Trip' })
+  const draft = new TaskDraft(id)
+  draft.setTitle('Trip to Rome')
+  draft.setNotes('Remember the passport.')
+  await draft.dispose()
+  expect(await db.tasks.get(id)).toMatchObject({ title: 'Trip to Rome', description: 'Remember the passport.' })
+  expect(await db.outbox.count()).toBeGreaterThan(1)
+})
+
+it('does not flush a previous account’s task draft into a newly opened database', async () => {
+  useAdapter()
+  const id = await createTask({ title: 'Private' })
+  const draft = new TaskDraft(id)
+  draft.setNotes('Private notes')
+  openDatabaseNamed('next-account')
+  await expect(draft.dispose()).rejects.toThrow('Account changed')
+  expect(await db.tasks.count()).toBe(0)
+  expect(await db.outbox.count()).toBe(0)
 })

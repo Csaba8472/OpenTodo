@@ -14,11 +14,12 @@ import {
   b64url, fromB64url, type KeyRecord,
 } from './crypto'
 import { platform } from './platform'
-import { db, getMeta, setMeta } from './db'
+import { db, getMeta, localEpoch, setMeta } from './db'
 import type { Entity, EncryptionStatus } from './types'
 import { t, msg } from './i18n'
 import { biometricForget, biometricRead, biometricStore, has as shellHas } from './shell'
 import { createStore } from './store'
+import { resettable } from './moduleState'
 
 /** The client's ciphertext-awareness level; the server's minClientVersion is compared with it (design D9). */
 export const CLIENT_VERSION = 1
@@ -164,7 +165,9 @@ export async function syncBlocked(): Promise<boolean> {
 
 /** Load the stored state into the snapshot (app start, database switch in tests). */
 export async function loadEncryptionState(): Promise<EncryptionSnapshot> {
-  memKeys.delete(db.name)
+  // A native key has no persisted copy to reload. Keep it for this process;
+  // lock(), sign-out and the module reset explicitly forget it.
+  if (!platform.memoryOnlyKeys) memKeys.delete(db.name)
   const [enabled, key, record, missing] = await Promise.all([isEnabled(), currentKey(), cachedRecord(), isRecordMissing()])
   publishEncryption({ enabled, unlocked: !!key, keyVersion: record?.version ?? 0, recordMissing: enabled && missing })
   return snap.get()
@@ -181,12 +184,15 @@ export async function loadEncryptionState(): Promise<EncryptionSnapshot> {
  * adopted (KeyRecordParamsError). Network errors propagate.
  */
 export async function refreshFromServer(): Promise<KeyRecord | null> {
+  const account = db
+  const epoch = localEpoch()
   let record: KeyRecord | null = null
   try {
     record = (await api.encryptionKeys()).keys
   } catch (err) {
     if (!(err instanceof ApiError && err.status === 404)) throw err
   }
+  if (db !== account || localEpoch() !== epoch) throw new Error('Account changed while reading encryption state')
   if (record) {
     try {
       checkRecordParams(record)
@@ -547,3 +553,5 @@ export async function forgetBiometric(): Promise<void> {
   biometricForget()
   await db.meta.delete(K_BIOMETRIC)
 }
+
+resettable('e2ee', forgetMemoryKeys)

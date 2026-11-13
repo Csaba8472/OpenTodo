@@ -89,6 +89,10 @@ object Background {
     }
 
     fun cancel(context: Context) {
-        WorkManager.getInstance(context).cancelUniqueWork(PERIODIC)
+        WorkManager.getInstance(context).apply {
+            cancelUniqueWork(PERIODIC)
+            cancelUniqueWork(REFRESH_TASK)
+            cancelUniqueWork(ACTION_TASK)
+        }
     }
 }

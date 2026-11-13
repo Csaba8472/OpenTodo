@@ -31,7 +31,12 @@ appId: ${APP_ID}
 - extendedWaitUntil:
     visible: Add task
     timeout: 60000
+# Today replaces the unlock screen with a transition; a tap during it is lost on iOS.
+- waitForAnimationToEnd
 - tapOn: Add task
+- extendedWaitUntil:
+    visible: Add
+    timeout: 5000
 - inputText: Secret plan
 - tapOn: Add
 - tapOn: Close

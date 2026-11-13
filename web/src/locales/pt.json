@@ -7447,5 +7447,7 @@
   "Your changes on this page are not saved.": "Suas alterações nesta página não foram salvas.",
   "min": "min",
   "sessions": "sessões",
-  "Usage resets on the first day of each month (UTC).": "O uso é zerado no primeiro dia de cada mês (UTC)."
+  "Usage resets on the first day of each month (UTC).": "O uso é zerado no primeiro dia de cada mês (UTC).",
+  "The next update is the new OpenTodo app": "A próxima atualização é a nova app OpenTodo",
+  "Everything you changed here is on your server. After the update, sign in once more and your tasks are there.": "Tudo o que alterou aqui está no seu servidor. Depois da atualização, inicie sessão mais uma vez e as suas tarefas estarão lá."
 }

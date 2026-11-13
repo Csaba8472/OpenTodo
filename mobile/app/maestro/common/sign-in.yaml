@@ -21,6 +21,16 @@ appId: ${APP_ID}
 - extendedWaitUntil:
     visible: Password|Sign in to the OpenTodo app on (iPhone|Android)\?
     timeout: 40000
+# A sheet that kept an older web app offers its update over the form (Safari's cache
+# outlives a test server): take it, then the form again.
+- runFlow:
+    when:
+      visible: Reload to update
+    commands:
+      - tapOn: Reload to update
+      - extendedWaitUntil:
+          visible: Password|Sign in to the OpenTodo app on (iPhone|Android)\?
+          timeout: 40000
 - runFlow:
     when:
       visible: Password
@@ -51,3 +61,11 @@ appId: ${APP_ID}
 - extendedWaitUntil:
     visible: Today|Unlock
     timeout: 40000
+
+# The native publisher asks after the first debounced snapshot. Settle that system
+# permission before a test backgrounds the app or opens another app's share sheet.
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn: { text: Allow, optional: true }

@@ -8,6 +8,7 @@ import type { Note, Task } from '@shared/types'
 import { useNavigation, type NavigationProp } from '@react-navigation/native'
 import { useEffect, useLayoutEffect, useState } from 'react'
 import { FlatList, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import { useTablet } from '../nav/tabletContext'
 import { complete } from '../data/actions'
 import { useLookups } from '../data/lookups'
 import type { RootParams, StackParams } from '../nav/types'
@@ -39,6 +40,7 @@ export async function search(query: string): Promise<{ tasks: Task[]; notes: Not
 
 export function SearchScreen() {
   const c = useColors()
+  const tablet = useTablet()
   const nav = useNavigation<NavigationProp<StackParams & RootParams>>()
   const { projects } = useLookups()
   const [query, setQuery] = useState('')
@@ -48,9 +50,9 @@ export function SearchScreen() {
   // iOS: the search field of the navigation bar. Android: Material's search bar, always
   // shown at the top (the app bar's collapsed search icon hides where to type).
   useLayoutEffect(() => {
-    if (Platform.OS !== 'ios') return
-    nav.setOptions({ headerSearchBarOptions: { placeholder: t('Search tasks and notes'), onChangeText: (e: { nativeEvent: { text: string } }) => setQuery(e.nativeEvent.text), hideWhenScrolling: false, autoFocus: false } })
-  }, [nav])
+    if (Platform.OS !== 'ios' || tablet) return
+    nav.setOptions({ headerSearchBarOptions: { placeholder: t('Search tasks and notes'), onChangeText: (e: { nativeEvent: { text: string } }) => setQuery(e.nativeEvent.text), hideWhenScrolling: false, autoFocus: !!tablet } })
+  }, [nav, tablet])
 
   useEffect(() => {
     let live = true
@@ -73,9 +75,10 @@ export function SearchScreen() {
       data={hits ?? []}
       keyboardDismissMode="on-drag"
       keyboardShouldPersistTaps="handled"
-      ListHeaderComponent={Platform.OS === 'ios' ? undefined : (
+      ListHeaderComponent={Platform.OS === 'ios' && !tablet ? undefined : (
         <TextInput
-          accessibilityLabel={t('Search')}
+          accessibilityLabel={tablet ? t('Search tasks and notes') : t('Search')}
+          autoFocus={!!tablet}
           autoCorrect={false}
           onChangeText={setQuery}
           placeholder={t('Search tasks and notes')}
@@ -94,7 +97,7 @@ export function SearchScreen() {
             <TaskRow
               onAction={(task, a) => { if (a === 'complete') void complete(task.id, !task.completed_at) }}
               onLongPress={(task) => nav.navigate('TaskMenu', { id: task.id })}
-              onPress={(task) => nav.navigate('Task', { id: task.id })}
+              onPress={(task) => tablet ? tablet.select(task.id) : nav.navigate('Task', { id: task.id })}
               projects={projects}
               task={item.task}
               today={today}

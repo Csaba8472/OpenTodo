@@ -13,6 +13,7 @@ import { onSignOutElsewhere, startSync, stopSync, useSyncStatus } from '../lib/s
 import { startRelay } from '../lib/relay'
 import { RelayConfirm } from './RelayConfirm'
 import { AppBadgeSync } from './AppBadge'
+import { has as shellHas } from '../lib/shell'
 import type { AuthStatus, User } from '../lib/types'
 import { AuthScreen } from './AuthScreen'
 import { InviteScreen } from './InviteScreen'
@@ -45,6 +46,8 @@ export { DemoBanner }
 
 // Display mode (display-mode): its own chunk, fetched when a display route opens.
 const DisplayScreen = lazy(() => import('./display/DisplayScreen').then((m) => ({ default: m.DisplayScreen })))
+
+const ShellHandover = lazy(() => import('./ShellHandover').then((m) => ({ default: m.ShellHandover })))
 
 type Phase =
   | { kind: 'loading' }
@@ -318,7 +321,7 @@ export function App() {
         ) : (
           <Shell user={phase.user} onLogout={() => void logout()} />
         )}
-        <RelayConfirm /><AppBadgeSync />
+        <RelayConfirm /><AppBadgeSync />{shellHas('handover') && <Suspense fallback={null}><ShellHandover /></Suspense>}
       </>
     )
   }

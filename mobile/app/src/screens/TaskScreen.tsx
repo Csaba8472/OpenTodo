@@ -7,15 +7,16 @@
 import { createComment } from '@shared/comments'
 import { db } from '@shared/db'
 import { describeDue, logicalToday } from '@shared/dates'
-import { createSubtask, saveNote, setRecurrence, updateTask } from '@shared/ops'
+import { createSubtask, setRecurrence, updateTask } from '@shared/ops'
 import { priorityName } from '@shared/priority'
 import type { Attachment, Comment, Label, Priority, Project, Task } from '@shared/types'
 import type { NativeStackScreenProps } from '@react-navigation/native-stack'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ActionSheetIOS, Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { session } from '../appSession'
 import { complete, schedule, setPriority, trash } from '../data/actions'
 import { useRead } from '../data/useRead'
+import { TaskDraft } from '../data/taskDraft'
 import { usePickers } from '../nav/pickers'
 import type { StackParams } from '../nav/types'
 import { t } from '../ui/i18n'
@@ -90,29 +91,23 @@ export function TaskScreen({ route, navigation }: NativeStackScreenProps<StackPa
   const [notes, setNotes] = useState<string | null>(null)
   const [subtask, setSubtask] = useState('')
   const [comment, setComment] = useState('')
-  const noteTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const draft = useMemo(() => new TaskDraft(id), [id])
   const today = logicalToday()
 
   // The title moves into the bar once the page's own title has scrolled away.
   const [scrolled, setScrolled] = useState(false)
   useEffect(() => { navigation.setOptions({ title: scrolled ? task?.title ?? '' : '' }) }, [navigation, task?.title, scrolled])
-  useEffect(() => () => { if (noteTimer.current) clearTimeout(noteTimer.current) }, [])
+  useEffect(() => () => { void draft.dispose().catch(() => undefined) }, [draft])
 
   if (!detail) return <View style={{ flex: 1, backgroundColor: c.grouped }} />
   if (!task) return <View style={[styles.gone, { backgroundColor: c.grouped }]}><Text style={{ color: c.muted, fontSize: type.body }}>{t('This task was deleted.')}</Text></View>
 
   const saveTitle = () => {
-    const next = (title ?? task.title).trim()
-    if (next && next !== task.title) void updateTask(id, { title: next })
-    setTitle(null)
+    void draft.flushTitle().then(() => setTitle(null))
   }
-  // Notes are written a moment after the typing stops, and when the field is left.
-  const saveNotes = (text: string, now = false) => {
+  const saveNotes = (text: string) => {
     setNotes(text)
-    if (noteTimer.current) clearTimeout(noteTimer.current)
-    const write = () => { if (text !== (task.description ?? '')) void saveNote('task', id, { description: text }) }
-    if (now) write()
-    else noteTimer.current = setTimeout(write, 800)
+    draft.setNotes(text)
   }
 
   const set: Record<Field, string | null> = {
@@ -177,7 +172,7 @@ export function TaskScreen({ route, navigation }: NativeStackScreenProps<StackPa
             accessibilityLabel={t('Title')}
             multiline
             onBlur={saveTitle}
-            onChangeText={setTitle}
+            onChangeText={(text) => { setTitle(text); draft.setTitle(text) }}
             scrollEnabled={false}
             style={[styles.title, { color: c.text }]}
             submitBehavior="blurAndSubmit"
@@ -187,7 +182,7 @@ export function TaskScreen({ route, navigation }: NativeStackScreenProps<StackPa
         <TextInput
           accessibilityLabel={t('Notes')}
           multiline
-          onBlur={() => saveNotes(notes ?? task.description ?? '', true)}
+          onBlur={() => { void draft.flushNotes() }}
           onChangeText={(s) => saveNotes(s)}
           placeholder={t('Notes')}
           placeholderTextColor={c.muted}

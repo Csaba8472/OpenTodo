@@ -118,7 +118,7 @@ Signing out of OpenTodo always ends the OpenTodo session only. With **Sign out o
 
 ## In the Android and iPhone apps
 
-The [Android app](../android-app.md#behind-a-login-page-pangolin-authelia-and-others) and the [iPhone app](../ios-app.md#single-sign-on-and-login-walls) complete **Sign in with &lt;name&gt;** inside the app: the provider's page opens in the app, with its address shown above it, and sends the person back signed in. Some providers refuse sign-in inside an app's web view (Google answers "Error 403: disallowed_useragent"); with those, people sign in to the apps with their password or a passkey.
+The [Android app](../android-app.md#behind-a-login-page-pangolin-authelia-and-others) and the [iPhone app](../ios-webview-app.md#single-sign-on-and-login-walls) complete **Sign in with &lt;name&gt;** inside the app: the provider's page opens in the app, with its address shown above it, and sends the person back signed in. Some providers refuse sign-in inside an app's web view (Google answers "Error 403: disallowed_useragent"); with those, people sign in to the apps with their password or a passkey.
 
 ## Offline
 

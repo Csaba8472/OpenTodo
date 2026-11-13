@@ -277,12 +277,15 @@ export class Session {
     this.refreshing ??= (async () => {
       try {
         const t = await token(this.raw, stale.server, { grant_type: 'refresh_token', refresh_token: stale.refresh }, this.now())
+        // A sign-out or another sign-in may finish while the refresh is in flight.
+        if (this.tokens !== stale) return null
         await this.save(t)
         return t
       } catch (err) {
         // The token route failed without refusing (a 5xx, a proxy page): no answer, as for the network.
         if (err instanceof SignInError) throw new TypeError('the token refresh failed')
         if (!(err instanceof RefreshRefused)) throw err
+        if (this.tokens !== stale) return null
         await this.save(null)
         for (const fn of [...this.listeners]) fn()
         return null

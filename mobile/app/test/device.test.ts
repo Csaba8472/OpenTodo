@@ -5,7 +5,8 @@
 // container mocked: the widget's snapshot is the shared fixture's, the reminders keep a
 // window of 60, a locked account keeps its schedule, the notification buttons and shares
 // become ops, and in-app notifications become local ones once.
-import { db, getMeta, useDatabase as openDatabaseNamed } from '@shared/db'
+import { db, getMeta, setMeta, useDatabase as openDatabaseNamed } from '@shared/db'
+import * as ops from '@shared/ops'
 import { resetModuleState } from '@shared/moduleState'
 import { installPlatform, platform } from '@shared/platform'
 import { setCurrentUserId } from '@shared/sharing'
@@ -27,8 +28,10 @@ jest.mock('../modules/opentodo-shared-container', () => ({
     publishWidget: (s: unknown) => { mockPublished.push(s) },
     scheduleReminders: (r: unknown[]) => { mockScheduled.push(r); return 'granted' },
     notify: (n: unknown) => { mockNotified.push(n); return true },
-    takeActions: () => { const a = mockActions; mockActions = []; return a },
-    takeShares: () => { const s = mockShares; mockShares = []; return s },
+    takeActions: () => [...mockActions],
+    ackAction: (id: string, at: number) => { mockActions = mockActions.filter((a) => a.id !== id || a.at !== at) },
+    takeShares: () => [...mockShares],
+    ackShare: (id: string) => { mockShares = mockShares.filter((s) => s.id !== id) },
     fileSha256: async () => null,
     removeFile: () => undefined,
   },
@@ -104,9 +107,31 @@ describe('the notification buttons', () => {
     expect(await applyQueuedActions()).toBe(2)
     expect((await db.tasks.get('a'))?.completed_at).toBe(NOW + 1000)
     expect((await db.reminders.get('rb'))?.fire_at).toBe(NOW + 2000 + 10 * 60_000)
+    expect(mockActions).toHaveLength(0)
     // Ops in the outbox, sent at the next sync.
     expect(await db.outbox.count()).toBeGreaterThan(0)
   })
+})
+
+it('retains a notification action after a failed write and retries it', async () => {
+  await setCurrentUserId('u1')
+  await db.tasks.put(row({ id: 'a', title: 'A' }))
+  await db.reminders.put(reminder('ra', 'a', NOW))
+  mockActions = [{ id: 'ra', action: 'done', at: NOW }]
+  const failed = jest.spyOn(ops, 'completeTask').mockRejectedValueOnce(new Error('disk full'))
+  await expect(applyQueuedActions()).rejects.toThrow('disk full')
+  expect(mockActions).toHaveLength(1)
+  failed.mockRestore()
+  await applyQueuedActions()
+  expect(mockActions).toHaveLength(0)
+  expect((await db.tasks.get('a'))?.completed_at).toBe(NOW)
+})
+
+it('acknowledges stale notification actions without creating a reminder', async () => {
+  mockActions = [{ id: 'another-account', action: 'snooze', at: NOW }]
+  await applyQueuedActions()
+  expect(await db.reminders.count()).toBe(0)
+  expect(mockActions).toHaveLength(0)
 })
 
 describe('shares', () => {
@@ -120,10 +145,43 @@ describe('shares', () => {
 
   it('becomes an Inbox task', async () => {
     await setCurrentUserId('u1')
-    mockShares = [{ title: 'An article', text: '', url: 'https://example.com/a', files: [], at: NOW }]
+    mockShares = [{ id: '00000000-0000-4000-8000-000000000001', title: 'An article', text: '', url: 'https://example.com/a', files: [], at: NOW }]
     const [id] = await applyQueuedShares()
     expect(await db.tasks.get(id)).toMatchObject({ title: 'An article', project_id: null })
+    expect(mockShares).toHaveLength(0)
+    expect(await applyQueuedShares()).toEqual([])
+    expect(await db.tasks.count()).toBe(1)
   })
+
+  it('keeps a share when writing its task fails, then retries it once', async () => {
+    await setCurrentUserId('u1')
+    mockShares = [{ id: '00000000-0000-4000-8000-000000000002', title: 'Keep me', text: '', url: '', files: [], at: NOW }]
+    const failed = jest.spyOn(ops, 'mutateMany').mockRejectedValueOnce(new Error('disk full'))
+    await expect(applyQueuedShares()).rejects.toThrow('disk full')
+    expect(mockShares).toHaveLength(1)
+    failed.mockRestore()
+    await applyQueuedShares()
+    expect(mockShares).toHaveLength(0)
+    expect(await db.tasks.count()).toBe(1)
+  })
+  it('leaves a locked account’s share in native storage', async () => {
+    await setMeta('e2ee.enabled', true)
+    mockShares = [{ id: '00000000-0000-4000-8000-000000000003', title: 'Private', text: '', url: '', files: [], at: NOW }]
+    expect(await applyQueuedShares()).toEqual([])
+    expect(mockShares).toHaveLength(1)
+    expect(await db.tasks.count()).toBe(0)
+    expect(await db.outbox.count()).toBe(0)
+  })
+
+  it('retains an unreadable file’s share without creating another task on retry', async () => {
+    await setCurrentUserId('u1')
+    mockShares = [{ id: '00000000-0000-4000-8000-000000000004', title: '', text: '', url: '', files: [{ path: '/missing', name: 'receipt.png', type: 'image/png', size: 10 }], at: NOW }]
+    await expect(applyQueuedShares()).rejects.toThrow('Shared file cannot be read')
+    await expect(applyQueuedShares()).rejects.toThrow('Shared file cannot be read')
+    expect(mockShares).toHaveLength(1)
+    expect(await db.tasks.count()).toBe(1)
+  })
+
 })
 
 describe('in-app notifications', () => {

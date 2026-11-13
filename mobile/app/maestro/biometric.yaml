@@ -11,6 +11,11 @@ appId: ${APP_ID}
 - tapOn:
     text: Unlock
     index: -1
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn: { text: OK, optional: true }
 - extendedWaitUntil:
     visible: Add task
     timeout: 60000

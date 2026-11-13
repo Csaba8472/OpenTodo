@@ -1,10 +1,13 @@
 // The phone side of app sign-in (design D5): the authentication sheet
 // (ASWebAuthenticationSession, a Custom Tab) and the account the local database
 // belongs to.
+import { bumpLocalEpoch } from '@shared/db'
+import { forgetMemoryKeys } from '@shared/e2ee'
 import * as WebBrowser from 'expo-web-browser'
 import { Platform } from 'react-native'
 import { setCurrentUserId } from '@shared/sharing'
 import { stopAccountSync } from './accountSync'
+import { stopDevice } from './device'
 import { container } from '../modules/opentodo-shared-container'
 import { clearDevicePrefs } from './host'
 import { forgetAccount, openAccount } from './storage/account'
@@ -91,6 +94,8 @@ export function onSignOut(fn: () => void): () => void {
 
 /** Signs out (design D5) and deletes the account's database, tokens and record from the phone. */
 export async function signOut(): Promise<void> {
+  stopDevice()
+  bumpLocalEpoch()
   // No exchange runs on a token that is about to end, or writes into a database being deleted.
   await stopAccountSync()
   await session.signOut()
@@ -100,9 +105,12 @@ export async function signOut(): Promise<void> {
 
 /** What is left on the phone when the server ended the session: nothing of the account. */
 export async function forgetLocal(): Promise<void> {
+  stopDevice()
+  bumpLocalEpoch()
   await stopAccountSync()
   // The widget, the reminders, the queues and the background refresh go with the account.
   container.clear()
+  forgetMemoryKeys()
   restored = Promise.resolve(null)
   await vault.set(ACCOUNT, null)
   await forgetAccount()

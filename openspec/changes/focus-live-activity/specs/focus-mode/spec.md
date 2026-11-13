@@ -1,31 +1,34 @@
 ## ADDED Requirements
 
-### Requirement: The session handed to a native shell
-While the web app runs in a shell that lists the `focus` capability (native-shells "The running Focus session outside the app"), it SHALL publish the session's state to the shell on every change: start, pause, resume, phase change, end, change of task, "Take a break" from the break reminder, and leaving the Focus screen. It SHALL also publish on start whenever a session is stored, and it SHALL publish that none runs on sign-out, on lock of an encrypted account, and when no session is stored. The published state SHALL carry the title only when the device's "include task titles" option is on and the account is not encrypted. Publishing writes no op and sends nothing to the server, and a browser or a shell without the capability SHALL see no change. The address `/focus?action=pause` or `/focus?action=resume` SHALL apply that control through the same transition as Space, then be removed from the address. When the session is already in the asked state, the address does nothing.
+### Requirement: Focus in the native app
+The native app SHALL use the shared Focus modes, preferences and transitions, keep its timer state local to the device and write the session's time entries through the operation log. Its controller SHALL publish the full state to the shared-container module after start, pause, resume, phase change, end, task change, Take a break, leaving the screen and restoring a stored session. It SHALL publish none on sign-out, on encryption lock and when no session is stored. Titles SHALL be omitted for encrypted accounts and when the device disallows them. Publishing SHALL write no op and send no timer state to the server. The web app's Focus screen and service-worker notification SHALL behave as before.
+
+#### Scenario: Native offline session
+- **WHEN** the user starts Focus on a task in the native app without a network
+- **THEN** the session runs locally and its time-entry ops wait for sync
 
 #### Scenario: Browser unchanged
 - **WHEN** a session runs in a browser tab
-- **THEN** nothing is published and the Focus screen behaves as before
+- **THEN** no Expo module is called and its existing notification behavior is preserved
 
-#### Scenario: Pause from the address
-- **WHEN** the shell opens `/focus?action=pause` while a work session runs
-- **THEN** the session pauses, its time entry stops, the parameter is removed from the address, and the new paused state is published
+### Requirement: Native Focus actions
+The native app SHALL handle `opentodo://focus?action=pause` and `opentodo://focus?action=resume` through the same controller transitions as its screen controls, after the account is ready. A stale action SHALL do nothing. The action SHALL be consumed after handling and SHALL NOT replay when the screen or app is restored.
+
+#### Scenario: Pause from the activity
+- **WHEN** the activity opens the Pause link during a running session
+- **THEN** the native Focus screen opens, the session pauses, its time entry stops through ops and the new state is published
 
 #### Scenario: Stale action
-- **WHEN** the shell opens `/focus?action=pause` and the session is already paused
-- **THEN** nothing changes and no op is written
+- **WHEN** the Pause link opens while already paused
+- **THEN** no state change or additional op is written
 
-#### Scenario: Sign-out during a session
-- **WHEN** the user signs out while a session runs in the iOS app
-- **THEN** the web app publishes that none runs before clearing local data, and the Live Activity disappears
+### Requirement: One native session-end notification
+The native app SHALL schedule session-end and break-end notifications through the native module only, cancel and reschedule on transitions, and never invoke a service-worker notification. Browsers SHALL keep their existing service-worker notifications.
 
-### Requirement: Session end notification inside a shell
-In a shell that lists the `focus` capability, the session-end and break-end notifications SHALL come from the shell (native-shells "Session-end notification from the shell"), and the web app SHALL NOT attempt the service-worker notification, so at most one notification is shown per session end. In a browser the requirement "Session end notification" applies unchanged.
+#### Scenario: Native session end
+- **WHEN** a native session reaches its planned end in the background
+- **THEN** one local Session done notification is shown
 
-#### Scenario: One notification in the Android app
-- **WHEN** a session ends while the Android app is in the background
-- **THEN** exactly one "Session done" notification is shown, the shell's, and none from the web app
-
-#### Scenario: Browser keeps the service worker notification
-- **WHEN** a session ends while a browser tab is hidden and notifications are allowed
-- **THEN** the service worker's notification is shown as before
+#### Scenario: Browser session end
+- **WHEN** a browser session reaches its planned end while hidden with notifications allowed
+- **THEN** its existing service-worker notification is shown

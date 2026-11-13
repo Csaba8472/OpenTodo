@@ -70,6 +70,7 @@ jobs:
             -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build CODE_SIGN_IDENTITY=-
           app=build/Build/Products/Release-iphonesimulator/OpenTodo.app
           test -f "$app/main.jsbundle" || { echo "::error::no JavaScript bundle in $app"; exit 1; }
+          test -f "$app/PlugIns/OpenTodoShare.appex/PrivacyInfo.xcprivacy" || { echo "::error::share extension privacy manifest missing"; exit 1; }
           du -sh "$app"
       - name: The server the flows sign in to (this commit, web app included)
         run: make web server
@@ -99,7 +100,7 @@ jobs:
   # Prebuild, a debug build for the emulator's ABI only (the four-ABI build is the
   # release's) and the app module's unit tests. The JDK is the one the Android shell pins.
   app-android:
-    name: App on Android (prebuild, debug build, unit tests)
+    name: App on Android (prebuild, debug build, unit tests, no Google services, bundle)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -125,8 +126,22 @@ jobs:
       - name: Debug build and unit tests
         working-directory: mobile/app/android
         run: |
-          ./gradlew --no-daemon -PreactNativeArchitectures=x86_64 :app:assembleDebug :app:testDebugUnitTest
+          ./gradlew --no-daemon -PreactNativeArchitectures=x86_64 :app:assembleDebug :app:testDebugUnitTest :opentodo-shared-container:testDebugUnitTest
           ls -l app/build/outputs/apk/debug/
+      # F-Droid builds from source (native-app-handover D8): no Google Play Services or
+      # Firebase in any module; the check names the dependency that brought one in.
+      - name: No Google services
+        run: node mobile/app/scripts/google-services.mjs
+      # The bundle Google Play takes at the switch (D8): unsigned here, debug-signed by the
+      # generated project; the release job signs it with the upload key (keystore.properties).
+      - name: Release bundle
+        working-directory: mobile/app/android
+        run: ./gradlew --no-daemon :app:bundleRelease && ls -l app/build/outputs/bundle/release/
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: app-android-aab
+          path: mobile/app/android/app/build/outputs/bundle/release/app-release.aab
+          retention-days: 7
 
   # The app's performance run (design D4, task 5.2's app-perf; the storage spike's harness):
   # the perfseed 10,000-task account on the iOS simulator, on the app's own database (the

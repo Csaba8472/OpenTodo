@@ -5,6 +5,7 @@
 import { loadEncryptionState, refreshFromServer } from '@shared/e2ee'
 import { startSync, stopSyncAndWait, syncNow } from '@shared/sync'
 import { setDrain } from './live'
+import { accountWork } from './accountWork'
 
 /**
  * Starts syncing the open account. The account's encryption mode is read first, as the
@@ -12,8 +13,11 @@ import { setDrain } from './live'
  * device that cannot read it (sync waits for the unlock then). Offline, the stored mode is used.
  */
 export async function startAccountSync(): Promise<void> {
+  const check = accountWork()
   await loadEncryptionState()
+  check()
   await refreshFromServer().catch(() => undefined)
+  check()
   setDrain(() => syncNow())
   startSync()
 }

@@ -19,9 +19,9 @@ final class ShareViewController: UIViewController {
     }
 
     private func collect() {
-        // A new share replaces one that was never handed over; without this its files
-        // would stay in the shared container for good, since the index is overwritten.
-        ShareInbox.clear()
+        // The legacy shell has one capture screen. Native capture keeps every manifest
+        // until its task and attachment outbox are durable, including while locked/offline.
+        if Bundle.main.object(forInfoDictionaryKey: "OpenTodoNativeShareInbox") as? Bool != true { ShareInbox.clear() }
         let items = (extensionContext?.inputItems as? [NSExtensionItem]) ?? []
         let providers = items.flatMap { $0.attachments ?? [] }
         title_ = items.compactMap { $0.attributedTitle?.string }.first
@@ -80,8 +80,20 @@ final class ShareViewController: UIViewController {
             url = text
             self.text = nil
         }
+        // Safari hands a page's title over as the text beside its link, not as a title: one
+        // short line next to a link is the page's title (Android's browsers send it as the subject).
+        if title_ == nil, url != nil, let line = text?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !line.isEmpty, line.count <= 500, !line.contains("\n") {
+            title_ = line
+            text = nil
+        }
         let entry = ShareInbox.Entry(title: title_, text: text, url: url, files: files)
-        if let data = try? JSONEncoder().encode(entry) { Store.write(data, ShareInbox.fileName) }
+        if Bundle.main.object(forInfoDictionaryKey: "OpenTodoNativeShareInbox") as? Bool == true {
+            do { try ShareInbox.enqueue(entry) } catch {
+                extensionContext?.cancelRequest(withError: error)
+                return
+            }
+        } else if let data = try? JSONEncoder().encode(entry) { Store.write(data, ShareInbox.fileName) }
         open(URL(string: "opentodo://share")!) { [weak self] in
             self?.extensionContext?.completeRequest(returningItems: nil)
         }

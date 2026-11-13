@@ -1,0 +1,10 @@
+appId: ${APP_ID}
+---
+- runScript:
+    file: ../scripts/create-task.js
+    env:
+      TITLE: Water the plants
+- runFlow: ../common/sign-in.yaml
+- extendedWaitUntil:
+    visible: Water the plants
+    timeout: 20000

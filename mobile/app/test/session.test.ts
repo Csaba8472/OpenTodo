@@ -194,6 +194,31 @@ describe('Session', () => {
     expect(JSON.parse(vault.values.get('opentodo.session')!).refresh).toBe('refresh-1')
   })
 
+  it('does not restore a grant when an in-flight refresh finishes after sign-out', async () => {
+    let now = 1_000_000
+    const server = fakeServer()
+    let finish!: (response: Response) => void
+    let started!: () => void
+    const waiting = new Promise<void>((resolve) => { started = resolve })
+    const vault = memoryVault()
+    const raw: typeof fetch = async (input, init) => {
+      const body = JSON.parse(String(init?.body ?? '{}')) as Record<string, string>
+      if (body.grant_type === 'refresh_token') { started(); return new Promise((resolve) => { finish = resolve }) }
+      return server.fetchFn(input, init)
+    }
+    const session = new Session({ vault, fetch: raw, now: () => now })
+    await session.complete(SERVER, 'good', await signInRequest(SERVER, 'iPhone'))
+    now += 3_600_000
+    const request = session.fetch('/api/v1/me')
+    await waiting
+    await session.signOut()
+    finish(new Response(JSON.stringify({ access_token: 'late-access', refresh_token: 'late-refresh', expires_in: 3600 })))
+    await request
+    expect(session.server).toBeNull()
+    expect(vault.values.has('opentodo.session')).toBe(false)
+    expect(server.calls.some((c) => c.auth === 'Bearer late-access')).toBe(false)
+  })
+
   it('ends the grant on the server at sign-out', async () => {
     const { session, server, vault } = await signedIn()
     await session.signOut()

@@ -87,6 +87,19 @@ Only when every gate passes:
 
 **Promote stable.** The release moves `stable` by itself. Check that `ghcr.io/opentodoapp/opentodo:stable` now has the release's digest (`docker buildx imagetools inspect`). Run **Actions → Promote stable** with the version only when it did not (a failed or re-run image job), or to roll back to an older release: it repoints `stable` without rebuilding, under both names during the legacy window.
 
+## The native app's go/no-go gate
+
+The native app (`mobile/app`) replaces the web-view apps under their store records (`app.open-todo.ios`, `app.opentodo`) only when every line below holds, signed off by the owner in the switch release's pull request (OpenSpec change `native-app-handover`, D7). Copy the list into the pull request and tick it there.
+
+- [ ] **Two weeks of testers.** The TestFlight build of the native app has been with testers for at least 14 days, and the Android build on Google Play's internal track for as long.
+- [ ] **No data-loss or sync bug open.** No open issue labelled `data-loss` or `sync` concerns the native app.
+- [ ] **Crash-free sessions ≥ 99.5 %.** App Store Connect → TestFlight → Crashes, and Play Console → Android vitals, over the two weeks (Apple's and Google's own reporting; the app sends nothing).
+- [ ] **The app budgets pass, three nights running.** `make app-gate` prints the last three nightly runs of the default branch: every app job ✓ and every app budget within.
+- [ ] **The shell's last release has been out two weeks.** It sent its outbox and told its users that the next update is the new app (task 3.2 of `native-app-handover`).
+- [ ] **The owner approves.**
+
+Then the switch release: the native app with version 2.0.0 (build and version code 20000, above every web-view build), the iOS build from `mobile/app` through TestFlight, the Android bundle from the `app-android` job through Google Play's internal track (step 4.3), and F-Droid's recipe replaced by `mobile/app/store/fdroid/app.opentodo.yml`. The shells' code is deleted only after both stores ship it.
+
 ## 4. After the release
 
 1. **Umbrel digest** (pull request): `node scripts/deploy/pin.mjs` writes the published index digest into `deploy/umbrel/` and its upstream copy (`--check` only reports). Commit as `Pin the Umbrel image to the 0.15.0 index digest`.

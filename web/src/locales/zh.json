@@ -7447,5 +7447,7 @@
   "Your changes on this page are not saved.": "此页面上的更改尚未保存。",
   "min": "分钟",
   "sessions": "轮",
-  "Usage resets on the first day of each month (UTC).": "用量会在每月第一天（UTC）重置。"
+  "Usage resets on the first day of each month (UTC).": "用量会在每月第一天（UTC）重置。",
+  "The next update is the new OpenTodo app": "下次更新将是全新的 OpenTodo 应用",
+  "Everything you changed here is on your server. After the update, sign in once more and your tasks are there.": "你在这里所做的所有更改都已保存在你的服务器上。更新后，再登录一次，你的任务就在那里。"
 }

@@ -1,7 +1,7 @@
 // One database per account and server (design D4), like the web app's per browser
 // profile: a file named after both, opened at sign-in and deleted at sign-out, so the
 // next account on the phone starts clean and two servers never share rows.
-import { clearLocalData, db, useDatabase as openDatabaseNamed } from '@shared/db'
+import { bumpLocalEpoch, clearLocalData, db, useDatabase as openDatabaseNamed } from '@shared/db'
 import type { SqliteDatabase } from './adapter'
 
 /** FNV-1a, 32 bits: a short stable name, not a secret (the file stays on the device). */
@@ -22,6 +22,7 @@ export function accountDatabaseName(server: string, userId: string): string {
 
 /** Makes the account's database the one the shared modules use. */
 export function openAccount(server: string, userId: string): void {
+  bumpLocalEpoch()
   openDatabaseNamed(accountDatabaseName(server, userId))
 }
 

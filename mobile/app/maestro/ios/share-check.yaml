@@ -1,0 +1,12 @@
+appId: ${APP_ID}
+---
+- launchApp
+- tapOn: Inbox
+- extendedWaitUntil:
+    visible: An article worth reading
+    timeout: 10000
+- tapOn: An article worth reading
+- extendedWaitUntil:
+    visible: .*localhost.*article.*
+    timeout: 10000
+- runFlow: ../common/sign-out.yaml

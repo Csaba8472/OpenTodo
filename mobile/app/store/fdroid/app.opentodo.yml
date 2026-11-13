@@ -1,0 +1,54 @@
+# F-Droid build metadata for the native app (fdroiddata `metadata/app.opentodo.yml` format),
+# OpenSpec change native-app-handover D8. It replaces mobile/android/store/fdroid/app.opentodo.yml
+# at the switch release (RELEASING.md, the go/no-go gate): same application id, same signing
+# key, a higher version code (2.0.0: 20000). Until then it is not submitted.
+# F-Droid builds the tag from source: the app's packages from its lockfile (npm ci), the
+# native project from app.config.ts (expo prebuild), then an unsigned release APK that it
+# publishes only when it matches the project-signed APK of the GitHub release apart from the
+# signature. No module depends on Google Play Services or Firebase (scripts/google-services.mjs
+# in the app-android job). Node.js is not on the build server: the recipe fetches the pinned
+# release and checks its checksum. The listing comes from fastlane/metadata/android/ at the root.
+Categories:
+  - Task
+License: AGPL-3.0-only
+AuthorName: OpenTodo contributors
+WebSite: https://github.com/OpenTodoApp/OpenTodo
+SourceCode: https://github.com/OpenTodoApp/OpenTodo
+IssueTracker: https://github.com/OpenTodoApp/OpenTodo/issues
+Changelog: https://github.com/OpenTodoApp/OpenTodo/blob/HEAD/CHANGELOG.md
+
+AutoName: OpenTodo
+
+RepoType: git
+Repo: https://github.com/OpenTodoApp/OpenTodo.git
+Binaries: https://github.com/OpenTodoApp/OpenTodo/releases/download/v%v/opentodo-android-%v.apk
+
+Builds:
+  - versionName: 2.0.0
+    versionCode: 20000
+    commit: v2.0.0
+    subdir: mobile/app
+    sudo:
+      - curl -fsSLo /tmp/node.tar.xz https://nodejs.org/dist/v24.22.3/node-v24.22.3-linux-x64.tar.xz
+      - echo '4f2b175a6d53a5c617a80dba2676238a0688cef28c6da4eba35c7d844e66fcfb  /tmp/node.tar.xz' | sha256sum -c
+      - tar -xJf /tmp/node.tar.xz -C /opt
+      - ln -s /opt/node-v24.22.3-linux-x64/bin/node /opt/node-v24.22.3-linux-x64/bin/npm /opt/node-v24.22.3-linux-x64/bin/npx /usr/local/bin/
+    rm:
+      - extension
+      - internal/importer/testdata
+      - internal/store/testdata
+      - mobile/android
+    prebuild:
+      - npm ci --no-audit --no-fund
+      - npx expo prebuild --platform android --no-install
+    build:
+      - cd android && ./gradlew --no-daemon -Popentodo.unsigned=true :app:assembleRelease
+    output: android/app/build/outputs/apk/release/app-release-unsigned.apk
+
+AllowedAPKSigningKeys: ff2eacdf7e79712e44fdd9d2e3110891e712c170ea516bd3fbbecc291072befa
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags
+UpdateCheckData: mobile/app/store/fdroid/app.opentodo.yml|CurrentVersionCode:\s*(\d+)|.|CurrentVersion:\s*([0-9.]+)
+CurrentVersion: 2.0.0
+CurrentVersionCode: 20000

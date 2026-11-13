@@ -37,18 +37,20 @@ class Bridge(private val context: Context, private val origin: String, private v
 
     private val main = Handler(Looper.getMainLooper())
 
-    fun capabilities(): List<String> = capabilities(BuildConfig.PLAY_BUILD)
+    fun capabilities(): List<String> = capabilities(BuildConfig.PLAY_BUILD, BuildConfig.HANDOVER)
 
     /**
      * geofences also in the hidden run, which hands the regions over hourly (it never asks);
      * never in the Google Play build, which has no location permission (play-location-later).
+     * handover only in the last release and with a screen, where the notice can show.
      */
-    fun capabilities(play: Boolean): List<String> {
+    fun capabilities(play: Boolean, handover: Boolean = false): List<String> {
         val caps = mutableListOf("reminders", "widgets")
         if (!play) caps += "geofences"
         if (host != null) {
             caps += listOf("share", "links", "obsidian-links", "system-bars", "microphone")
             if (BiometricKeyStore.available(context)) caps += "biometric"
+            if (handover) caps += "handover"
         }
         return caps
     }

@@ -11,6 +11,8 @@ import { memo, useRef, useState } from 'react'
 import { Animated, Platform, Pressable, StyleSheet, Text, View, type AccessibilityActionEvent } from 'react-native'
 import { GestureDetector, usePanGesture } from 'react-native-gesture-handler'
 import Swipeable, { SwipeDirection, type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable'
+import { TabletView } from '../../modules/opentodo-shared-container/TabletView'
+import { useTablet } from '../nav/tabletContext'
 import { t } from './i18n'
 import { Icon, type IconName } from './Icon'
 import { useColors, type, type Colors } from './theme'
@@ -81,6 +83,8 @@ function DragHandle({ c, onMove, onDrop, offset }: { c: Colors; onMove(dir: 'up'
 
 function TaskRowView(p: TaskRowProps) {
   const c = useColors()
+  const tablet = useTablet()
+  const [hovered, setHovered] = useState(false)
   const swipe = useRef<SwipeableMethods>(null)
   const offset = useRef(new Animated.Value(0)).current
   const { task } = p
@@ -117,9 +121,11 @@ function TaskRowView(p: TaskRowProps) {
       accessibilityState={p.selecting ? { checked: !!p.selected } : undefined}
       delayLongPress={350}
       onAccessibilityAction={onA11y}
-      onLongPress={p.selecting ? undefined : () => p.onLongPress(task)}
+      onLongPress={p.selecting || tablet ? undefined : () => p.onLongPress(task)}
+      onHoverIn={() => setHovered(true)}
+      onHoverOut={() => setHovered(false)}
       onPress={() => p.onPress(task)}
-      style={({ pressed }) => [styles.row, { backgroundColor: pressed && Platform.OS === 'ios' ? c.field : c.bg }]}
+      style={({ pressed }) => [styles.row, { backgroundColor: (pressed || hovered || (!p.selecting && p.selected)) && Platform.OS === 'ios' ? c.field : c.bg }]}
       android_ripple={{ color: c.field }}
     >
       <Pressable
@@ -132,11 +138,11 @@ function TaskRowView(p: TaskRowProps) {
         <View
           style={[
             styles.circle,
-            { borderColor: p.selected || done ? c.accent : task.priority < 4 ? PRIORITY_TONE(c, task.priority) : c.muted },
-            (p.selected || done) && { backgroundColor: c.accent },
+            { borderColor: (p.selecting && p.selected) || done ? c.accent : task.priority < 4 ? PRIORITY_TONE(c, task.priority) : c.muted },
+            ((p.selecting && p.selected) || done) && { backgroundColor: c.accent },
           ]}
         >
-          {(p.selected || done) && <Icon color={c.onAccent} name="check" size={14} />}
+          {((p.selecting && p.selected) || done) && <Icon color={c.onAccent} name="check" size={14} />}
         </View>
       </Pressable>
       <View style={styles.text}>
@@ -159,7 +165,7 @@ function TaskRowView(p: TaskRowProps) {
 
   if (p.selecting) return p.onDrop ? <Animated.View style={{ transform: [{ translateY: offset }], zIndex: 2 }}>{body}</Animated.View> : body
   return (
-    <Swipeable
+    <TabletView taskId={tablet ? task.id : ''}><Swipeable
       ref={swipe}
       friction={1.4}
       leftThreshold={96}
@@ -184,7 +190,7 @@ function TaskRowView(p: TaskRowProps) {
       rightThreshold={40}
     >
       {body}
-    </Swipeable>
+    </Swipeable></TabletView>
   )
 }
 

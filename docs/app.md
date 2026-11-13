@@ -56,7 +56,13 @@ Everything above works without a connection. The top of a list says **Offline** 
 
 ## Encrypted accounts
 
-An account with [end-to-end encryption](e2ee.md) asks for its passphrase after sign-in and each time the app starts. The key stays in the app's memory only.
+An account with [end-to-end encryption](e2ee.md) asks for its passphrase after sign-in and each time the app starts. The unwrapped key stays in the app's memory only. After a passphrase unlock, a supported device can save a biometric-protected key for the next start; changes to biometric enrollment bring back the passphrase prompt.
+
+## Widgets, sharing and reminders
+
+The native trial publishes a Today widget after local changes, sync and background refresh. A snapshot more than an hour old shows its update time. Share text, links or images from another app into the Inbox; offline shares stay on the device until they can be saved and uploaded.
+
+The app schedules local reminder notifications with **Complete** and **Snooze 10 min** actions. Background refresh pulls changes and tops up the schedule. There is no push relay: notifications from other people arrive at the next refresh or when the app opens. The operating system chooses that timing, which can be minutes or hours. See [the iOS guide](ios-app.md#reminders-and-background-refresh).
 
 ## What stays on the web
 

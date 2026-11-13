@@ -1,0 +1,37 @@
+# A tiny XCTest runner. The installed Release app is launched by bundle id; the harness
+# app is never used for product behavior and does not enter the app's build or bundle.
+name: NativeInteractions
+options:
+  deploymentTarget:
+    iOS: "16.4"
+settings:
+  base:
+    CODE_SIGNING_ALLOWED: NO
+    GENERATE_INFOPLIST_FILE: YES
+    SWIFT_VERSION: "5.0"
+targets:
+  Harness:
+    type: application
+    platform: iOS
+    sources: [Harness.swift]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.opentodo.test-harness
+  NativeInteractionTests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [InteractionTests.swift, ShareTests.swift]
+    dependencies:
+      - target: Harness
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.opentodo.native-interactions
+        TEST_TARGET_NAME: Harness
+schemes:
+  NativeInteractions:
+    build:
+      targets:
+        Harness: all
+        NativeInteractionTests: [test]
+    test:
+      targets: [NativeInteractionTests]

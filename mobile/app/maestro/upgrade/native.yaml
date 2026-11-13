@@ -1,0 +1,9 @@
+# Do not clear state: this is an in-place update of the shell's bundle id.
+appId: app.open-todo.ios
+---
+- launchApp
+- extendedWaitUntil:
+    visible: Your server
+    timeout: 20000
+- assertVisible: ${SERVER}
+- assertVisible: Sign in once more.*

@@ -1,6 +1,6 @@
 ---
 title: The iOS app
-summary: The OpenTodo app for iPhone and iPad, from the App Store or built from source: connect it to your server, reminders without push, sharing, widgets and Face ID unlock.
+summary: The native OpenTodo app for iPhone and iPad: offline tasks, sign-in, widgets, sharing, reminders and biometric unlock.
 audience: user
 section: Reference
 specs: []
@@ -9,96 +9,54 @@ order: 23
 ---
 # The iOS app
 
-The OpenTodo app for iPhone and iPad opens your own OpenTodo server, like the [installed web app](install-phone.md#iphone-and-ipad), and adds what only an app can do: the share sheet, a Today widget and Face ID unlock of an encrypted account. It needs iOS 16.4 or later and an OpenTodo server; it talks to nothing else.
+OpenTodo 2.0 is the native app for iPhone and iPad. It requires iOS 16.4 or later. It keeps tasks on the device and syncs with your own server, so lists, capture and edits work offline. It is being tested before replacing the current App Store app. The [1.x web-view app guide](ios-webview-app.md) describes the version currently available from the store.
 
-## Install it
+## Install and sign in
 
-The official app is in the App Store: [OpenTodo for iPhone and iPad](https://apps.apple.com/us/app/opentodo/id6832200428). It is the first release, so expect some rough edges, and [say what to improve](feedback-and-support.md). New builds go to testers through TestFlight, Apple's app for testing, before they reach the App Store.
+The app uses the existing [App Store record](https://apps.apple.com/us/app/opentodo/id6832200428). Trial builds reach testers through TestFlight; the production switch follows testing and release approval.
 
-As the copyright holder, the author of OpenTodo allows distributing its iOS app through Apple's App Store and TestFlight. You can still build the app yourself from source ([Building it](#building-it)).
+Enter your server address and choose **Continue**. The system's sign-in sheet opens your server, where password, passkeys, two-factor and single sign-on work as on the web. If the browser is already signed in, confirm the app sign-in. The app keeps its own tokens in secure storage; revoke them from your server's sessions list.
 
-## Connect to your server
+Use an OpenTodo 1.4 or newer server. HTTPS is recommended; an address on your local network can use explicitly entered HTTP. The app does not bypass untrusted certificates.
 
-On first start the app asks for your server's address, the one you open in the browser (for example `todo.example.com`). An address without a scheme is reached over `https`, and the field shows it as `https://todo.example.com` before anything is sent; the app never tries `http` by itself and never follows a redirect to another address. Plain `http` is only used when you type it, only for addresses on your own network, and the screen then says the connection is not encrypted; everything else must be `https`. **Connect** becomes active once the address is well-formed. After connecting, **Settings → About** shows the exact address under **OpenTodo for iOS**. The screen says what is wrong when it can't connect:
+When updating from 1.x, the server address is filled in, and you sign in once more. The first sync restores the account. The last 1.x release sends pending changes before showing the update notice; the new app does not import a web view's local database.
 
-- **No answer**: the first start needs the network. Check the address and the connection.
-- **Not an OpenTodo server**: the address answers, but not like OpenTodo. Check for typos.
-- **Certificate not trusted**: the phone doesn't trust the server's certificate. The app uses iOS's own check and does not offer to skip it; a private authority you installed on the phone is fine.
-- **Must be reached over https**: the app suggests the `https` address; tap it and try again.
+## Lists, capture and offline use
 
-To point the app at another server later, long-press its icon and choose **Change server**. It asks first, because it also forgets the cached web app and its data, including changes that have not reached the server yet.
+The five destinations are Today, Inbox, Upcoming, Browse and Search. Tap a task to edit it; tap its circle or swipe right to complete it, with Undo in the message. Browse contains projects, labels, saved views, notes, the Logbook and Settings. [The app guide](app.md) covers capture, dates, gestures and task detail.
 
-### Single sign-on and login walls
-
-OpenTodo's own **Sign in with …** button (see [Single sign-on](self-hosting/sso.md)) signs in inside the app: the provider's page opens in the app and sends you back signed in. A bar above the provider's page names the site you are signing in on, since the app has no address bar; the **×** in the bar, or swiping back, returns to your server. A login wall in front of the server (Pangolin, Authelia, Authentik's proxy, Cloudflare Access, oauth2-proxy) works the same way once the app is connected: when the wall asks again, its sign-in page opens in the app. If a sign-in can't continue in the app (for example a page left open for a long time), the app says so and offers **Sign in here** to start again.
-
-Only pages the sign-in leads through stay in the app; a link to another site on a sign-in page (a privacy policy, a help page) opens in Safari, like every other link. The app's first-run check does not pass a login wall: let the wall bypass `/api/v1/health` and `/healthz` (the [Android guide](android-app.md#bypassing-the-wall-instead) lists the paths). The hourly background refresh never follows the wall's redirect; while its session has expired, the refresh waits until you next open the app. Some providers refuse to sign in inside an app's web view (Google answers "Error 403: disallowed_useragent"); with those, sign in with a password or a passkey. An app built for one server with app-bound domains (see [Building it](#building-it)) can only show the pages of the hosts it declares, so add the provider's host to `OPENTODO_APP_BOUND_HOST` too.
-
-## Reminders
-
-Your server's reminders arrive as notifications, scheduled on the phone from the web app's own data: the next seven days, with **Snooze 10 min** and **Dismiss** on the notification. Both open the app, which then moves the reminder, because a local notification cannot change your tasks by itself. No push service is involved and nothing leaves the phone.
-
-Two limits come from iOS. A WKWebView cannot receive web push, so unlike the [installed web app](push-notifications.md) the app has no immediate push; it refreshes the schedule whenever you open it, and iOS lets it refresh in the background about hourly when it decides to. Reminders that change while the app is closed can therefore arrive late, and notifications further away than seven days are not scheduled at all. If you want push per reminder, use the installed web app on iOS 16.4 or later; both can be on the same phone, and they share the same account.
-
-## Location reminders
-
-[Location reminders](location-reminders.md) do not fire in the iPhone app yet: it does not offer **Location reminders on this phone**, and the reminders say **Fires on your phone**. Watching places with iOS region monitoring (When In Use, then Always) comes in a later version of the app; until then they fire in the [Android app](android-app.md#location-reminders).
-
-## Offline
-
-The app from TestFlight or the App Store opens any server, and iOS gives such an app no service worker, so it needs the network to start and says so when there is none. For an offline start, use the [installed web app](install-phone.md#iphone-and-ipad), or build the app for your one server: set `OPENTODO_APP_BOUND_HOST=todo.example.com` when you build, and it gets the whole installed-web-app treatment, the service worker, the precache and an offline start.
-
-## Sharing into OpenTodo
-
-The app appears in the share sheet of other apps. A link, some text or files open the capture screen, ready to save: up to ten files, 20 MB each and 25 MB together — check your server's own limit per file. A share that arrives before you have entered a server waits until you have.
+After the first sign-in, the app starts offline with its local account. Changes wait in the outbox until a connection returns. Settings and planning features not yet present in the native app open on your server through **Settings → Open on the web**.
 
 ## Widgets
 
-**Today**, in the medium size, shows the tasks due today and the overdue ones, with the time and priority, from the last thing the web app published. Tap a task to open it. For an encrypted account the widget shows counts only until you unlock.
+Add **Today** from the home-screen widget gallery, then open the app once. It shows today's and overdue tasks from the device's last publication. Completing a task updates it; a change on another device appears after sync or background refresh. Tap a task to open it.
 
-Version 1.2.0 of the app never filled the widget, never scheduled reminders and offered browser push in **Settings → Notifications**. Update the app from the App Store or TestFlight and open it once; the widget fills and reminders are scheduled.
+A snapshot more than an hour old shows **Updated** with its publication time. An encrypted account publishes titles only while unlocked; a locked publication contains counts only. The widget makes no requests of its own.
 
-## Theme colours
+## Sharing
 
-The area behind the page (under the status bar before the page draws, and when you pull past the top or the bottom) takes the bar colour of your [theme](themes.md), and the app remembers it for the next launch. The status bar's icons follow the phone's light or dark appearance.
+Choose OpenTodo in another app's share sheet to send text, a link or images. The app turns the share into an Inbox task when it opens or returns to the foreground. Files remain on the device until their upload succeeds, and a share waiting for an encrypted account stays queued until unlock. The share sheet accepts up to ten files, 20 MB each and 25 MB together; your server can impose a lower limit.
 
-## Face ID unlock
+## Reminders and background refresh
 
-On a phone with Face ID or Touch ID, the [encrypted account](e2ee.md) offers **Unlock with Face ID next time**. After you unlock with the passphrase, the app keeps a copy of the account key encrypted by the Secure Enclave under a key that opens only with your face or finger, and the unlock screen offers that from then on; the passphrase still works.
+Reminders are local notifications, scheduled from the shared reminder rules. The app keeps the next 60 within the scheduling window, leaving room under iOS's 64-notification limit. Changes and syncs reschedule them, and background refresh tops them up. **Complete** and **Snooze 10 min** write changes on the device and send them at the next sync.
 
-The copy never leaves the phone. It is deleted when you sign out, reset the passphrase, turn encryption off, change servers, or when the account key changes, and iOS makes it unusable when faces or fingers are added or removed to the device.
+Allow notifications in iOS Settings. The app uses no push relay. iOS decides when background refresh runs, which can mean minutes or hours; refresh is not guaranteed after a force quit. A mention or assignment from someone else is delivered at the next refresh or when the app opens, rather than instantly. A reminder changed while the phone was offline keeps its old schedule until the next sync.
 
-## Voice notes and photos
+## Encrypted accounts
 
-The web app records voice notes and can attach a photo taken with the camera. iOS ends an app that asks for either without declaring it first, so the app declares both and the system's question comes from the app; as everywhere else, only your server is ever loaded, so no other page can ask. The Android app declares the microphone and asks the first time you dictate. It does not declare the camera, so taking a photo from the page stays iOS-only.
+The passphrase unlocks an encrypted account after a cold start. After unlocking, you can enable Face ID or Touch ID on a device that supports it. The saved key requires biometric authentication and stays in device-only secure storage. The passphrase remains available; changing biometric enrollment invalidates the saved key and brings back the passphrase prompt.
+
+Signing out removes the account's local data, tokens, queued shares, widget publication and scheduled notifications. Your server keeps the account.
+
+## iPad
+
+At regular width, the native app places Browse, the current list and task detail beside one another. A narrow multitasking window uses the phone layout. A pointer highlights rows; a task can be dragged onto a sidebar project.
+
+With a hardware keyboard, **N** opens capture, **⌘F** opens search, **Space** completes the selected task, **⌘1–5** switches destinations and **↑/↓** moves through the list. Text editing keeps its normal keys.
 
 ## Building it
 
-Instead of installing it, you can build the app yourself and sign it for your own devices, for example to get the offline start above. Needs a Mac with Xcode 16 or newer and an iOS simulator runtime:
+The native source is `mobile/app`. Its generated Xcode project includes the widget and share extension under `mobile/app/targets`; `mobile/ios` remains the 1.x shell until the production switch. See [mobile/README.md](../mobile/README.md) for the pinned toolchain, prebuild and simulator commands. A build for your own Apple account needs your own bundle identifier and signing configuration.
 
-```sh
-make ios                             # unit tests on a simulator, an unsigned device build, the dependency check
-open mobile/ios/OpenTodo.xcodeproj   # then Run, with your team selected for signing
-```
-
-Running it in the simulator needs nothing more than Xcode. For your own iPhone you need a team in Xcode, and that is where the one paid part sits.
-
-### On your own iPhone
-
-**Everything but the widget and the share sheet: a free Apple ID is enough.** Those two are app extensions, and they share their data with the app through an App Group, which is a paid capability, so a personal team cannot sign them. Remove them for a local build — these edits stay on your Mac, do not commit them:
-
-1. Select the `OpenTodo` target ▸ **General** ▸ *Frameworks, Libraries, and Embedded Content*, select `OpenTodoWidget.appex` and `OpenTodoShare.appex` and remove them with −.
-2. Delete the `OpenTodoWidget` and `OpenTodoShare` targets in the project navigator.
-3. On `OpenTodo` ▸ **Signing & Capabilities**, remove **App Groups** with −, then pick your personal team.
-
-Reminders, Face ID, the certificate and local-network behaviour and the background refresh all work in that build. A free build stops launching after seven days; run it again from Xcode to renew it.
-
-**Widget and share sheet included: a paid Apple Developer Program membership.** Add your account in Xcode ▸ Settings ▸ Accounts, select the team on all three targets, and keep **App Groups** on each of them with one group name — `group.app.open-todo`, or your own if the name is taken. Xcode registers it in the developer portal on the first signing attempt.
-
-Either way the first run on a device needs **Developer Mode** on (iPhone ▸ Settings ▸ Privacy & Security) and, for a free team, trusting the developer under Settings ▸ General ▸ VPN & Device Management. If Xcode reports that the bundle identifier is taken, change the `app.open-todo.ios` prefix in `mobile/ios/project.yml` for every target and run `xcodegen generate`.
-
-### Walkthrough
-
-To look at the app on several iPhones without a Mac, run **Actions → iPhone walkthrough** (`gh workflow run ios-walkthrough.yml --ref <branch>`). On a macOS runner it builds the server, seeds an account and walks the app through first run, sign-in, the lists, a project, a task, quick add, completing, swiping and dragging, search, the calendar and Settings (`mobile/ios/OpenTodoUITests/WalkthroughTests.swift`), on an iPhone SE (3rd generation), an iPhone 16, an iPhone 16 Pro Max and an iPhone 16 in dark mode with the largest text. The `ios-walkthrough` artifact holds one PNG per step and device and `summary.txt`, with what the accessibility audit found and the steps it could not reach. It reports and never fails; `scripts/ios-walkthrough.sh` runs the same on a Mac.
-
-`mobile/README.md` describes the files, the bridge and the build settings; `openspec/changes/ios-shell` records the decisions and what was measured on the platform.
+As the copyright holder, the author permits distribution through the App Store and TestFlight. The source remains AGPL-3.0.

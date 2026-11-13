@@ -410,6 +410,11 @@ function fileAad(id: string, header: Uint8Array): Bytes {
  * `chunkSize` are for known-answer tests only.
  */
 export async function encryptFile(key: CryptoKey, id: string, file: Blob, opts: { prefix?: Uint8Array; chunkSize?: number } = {}): Promise<Blob> {
+  return new Blob(await encryptFileParts(key, id, file, opts), { type: 'application/octet-stream' })
+}
+
+/** The same envelope for a host that keeps files on disk and cannot build a Blob from bytes. */
+export async function encryptFileParts(key: CryptoKey, id: string, file: { size: number; slice(start: number, end: number): { arrayBuffer(): Promise<ArrayBuffer> } }, opts: { prefix?: Uint8Array; chunkSize?: number } = {}): Promise<Uint8Array<ArrayBuffer>[]> {
   const chunkSize = opts.chunkSize ?? FILE_CHUNK
   const prefix = opts.prefix ?? random(8)
   const header = new Uint8Array(FILE_HEADER)
@@ -417,7 +422,7 @@ export async function encryptFile(key: CryptoKey, id: string, file: Blob, opts: 
   new DataView(header.buffer).setUint32(5, chunkSize)
   header.set(prefix, 9)
   const aad = fileAad(id, header)
-  const parts: BlobPart[] = [header]
+  const parts: Uint8Array<ArrayBuffer>[] = [header]
   for (let i = 0; ; i++) {
     const end = Math.min((i + 1) * chunkSize, file.size)
     const final = end === file.size
@@ -425,7 +430,7 @@ export async function encryptFile(key: CryptoKey, id: string, file: Blob, opts: 
     parts.push(new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv: fileNonce(prefix, i, final), additionalData: aad, tagLength: 128 }, key, plain)))
     if (final) break
   }
-  return new Blob(parts, { type: 'application/octet-stream' })
+  return parts
 }
 
 /**

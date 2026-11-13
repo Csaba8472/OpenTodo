@@ -11,7 +11,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { repo } from './source.mjs'
 
-export const shellCatalogPath = (root = repo) => join(root, 'mobile/ios/Shared/Localizable.xcstrings')
+export const shellCatalogPath = (root = repo) => join(root, 'mobile/app/targets/_shared/Localizable.xcstrings')
 
 export function readShellCatalog(root = repo) {
   return JSON.parse(readFileSync(shellCatalogPath(root), 'utf8'))

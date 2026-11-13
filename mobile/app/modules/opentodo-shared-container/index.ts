@@ -21,6 +21,8 @@ export interface QueuedAction {
 
 /** A share from another app: a file is a path in the app's own storage. */
 export interface QueuedShare {
+  /** Stable UUID, retained until the task and its files have been saved. */
+  id?: string
   title: string
   text: string
   url: string
@@ -38,12 +40,18 @@ export interface DeviceNotification {
 
 interface Native {
   publishWidget(json: string): void
-  scheduleReminders(json: string): ReminderPermission
-  notify(json: string): boolean
+  scheduleReminders(json: string): ReminderPermission | Promise<ReminderPermission>
+  notify(json: string): boolean | Promise<boolean>
   takeActions(): string
+  ackAction(id: string, at: number): void
   takeShares(): string
+  ackShare(id: string): void
   shellServer(): string | null
   startRefresh(): void
+  /** iOS: the background refresh that launched the app, before the JavaScript listened. */
+  pendingRefresh?(): boolean
+  refreshDone?(): void
+  writeFile(parts: string[]): string | null | Promise<string | null>
   fileSha256(path: string): string | null
   removeFile(path: string): void
   clear(): void
@@ -64,13 +72,18 @@ function list<T>(json: string | undefined): T[] {
 export const container = {
   available: native !== null,
   publishWidget: (snapshot: unknown) => native?.publishWidget(JSON.stringify(snapshot)),
-  scheduleReminders: (reminders: unknown[]): ReminderPermission => native?.scheduleReminders(JSON.stringify(reminders)) ?? 'denied',
-  notify: (n: DeviceNotification) => native?.notify(JSON.stringify(n)) ?? false,
+  scheduleReminders: async (reminders: unknown[]): Promise<ReminderPermission> => (await native?.scheduleReminders(JSON.stringify(reminders))) ?? 'denied',
+  notify: async (n: DeviceNotification): Promise<boolean> => (await native?.notify(JSON.stringify(n))) ?? false,
   takeActions: () => list<QueuedAction>(native?.takeActions()),
+  ackAction: (id: string, at: number) => native?.ackAction(id, at),
   takeShares: () => list<QueuedShare>(native?.takeShares()),
+  ackShare: (id: string) => native?.ackShare(id),
   shellServer: () => native?.shellServer() ?? null,
   startRefresh: () => native?.startRefresh(),
+  pendingRefresh: () => native?.pendingRefresh?.() ?? false,
+  refreshDone: () => native?.refreshDone?.(),
   /** The hex SHA-256 of a shared file in the app's storage, or null when it cannot be read. */
+  writeFile: async (parts: string[]): Promise<string | null> => (await native?.writeFile(parts)) ?? null,
   fileSha256: async (path: string): Promise<string | null> => native?.fileSha256(path) ?? null,
   removeFile: (path: string) => native?.removeFile(path),
   /** Sign-out: no snapshot, no reminders, no queue, no refresh. */

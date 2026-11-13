@@ -15,8 +15,12 @@ centre() {
     sed -E 's/.*bounds="\[([0-9]+),([0-9]+)\]\[([0-9]+),([0-9]+)\]".*/\1 \2 \3 \4/' | awk '{print int(($1+$3)/2), int(($2+$4)/2)}' || true
 }
 
+has_widget() {
+  adb shell dumpsys appwidget | sed -n '/^Widgets:/,/^Hosts:/p' | grep -q "$app_id/app.opentodo.container.TodayWidget"
+}
+
 add_widget() {
-  if adb shell dumpsys appwidget | grep -q "$app_id/app.opentodo.container.TodayWidget"; then return; fi
+  if has_widget; then return; fi
   adb shell input keyevent KEYCODE_HOME
   sleep 1
   adb shell input touchscreen swipe 540 1000 541 1001 2500
@@ -33,7 +37,7 @@ add_widget() {
   adb shell "input motionevent DOWN $x $y; sleep 1.5; input motionevent MOVE $x $((y - 200)); sleep 0.3; input motionevent MOVE 540 1100; sleep 0.3; input motionevent MOVE 540 700; sleep 0.5; input motionevent MOVE 540 650; sleep 1; input motionevent UP 540 650"
   sleep 2
   adb shell input keyevent KEYCODE_HOME
-  adb shell dumpsys appwidget | grep -q "$app_id/app.opentodo.container.TodayWidget" || { echo "run.sh: the Today widget could not be added" >&2; exit 1; }
+  has_widget || { echo "run.sh: the Today widget could not be added" >&2; exit 1; }
 }
 
 force_refresh() {
